@@ -11,6 +11,7 @@
  * ============================================================ */
 
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   PlayerData,
   calculateGameXp,
@@ -102,9 +103,9 @@ export function GameEndModal({
     ? Math.floor(Math.log2(highestTile) * 3) : 0;
   const winBonus          = isWin ? 50 : 0;
 
-  return (
+  return createPortal(
     /* 오버레이 */
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl flex flex-col gap-5 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
 
         {/* ── 제목 ────────────────────────────────────── */}
@@ -216,7 +217,8 @@ export function GameEndModal({
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

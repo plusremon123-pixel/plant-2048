@@ -84,11 +84,8 @@ export default function Game({ themeId, player, onEarnXp, onHome }: GameProps) {
   /* ── 새 게임 / 홈 버튼 처리 ──────────────────────────── */
   const handleResetRequest = () => {
     if (showEndModal) return; /* 종료 모달 중에는 무시 */
-    if (score > 0 && !hasLost && !showWinModal) {
-      setShowResetConfirm(true);
-    } else {
-      resetGame();
-    }
+    /* 항상 확인 다이얼로그를 표시 */
+    setShowResetConfirm(true);
   };
 
   const handleHomeRequest = () => {
