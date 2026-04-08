@@ -141,13 +141,22 @@ export function FrontScreen({
   const [showMissionModal, setShowMissionModal] = useState(false);
   const [activeModal,      setActiveModal]      = useState<ActiveModal>(null);
 
-  /* 컨테이너 크기 추적 → BgLayout 업데이트 */
+  /* 컨테이너 크기 추적 → BgLayout 업데이트 (cover 모드 기준) */
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const update = () => {
       const { width, height } = el.getBoundingClientRect();
-      setBg({ offsetX: 0, offsetY: 0, renderW: width, renderH: height });
+      // cover: 이미지 비율을 유지하면서 컨테이너를 꽉 채우는 scale 계산
+      const scaleX = width  / DESIGN_W;
+      const scaleY = height / DESIGN_H;
+      const scale  = Math.max(scaleX, scaleY); // cover = 큰 쪽 기준
+      const renderW = DESIGN_W * scale;
+      const renderH = DESIGN_H * scale;
+      // 중앙 정렬 offset (잘리는 부분은 음수)
+      const offsetX = (width  - renderW) / 2;
+      const offsetY = (height - renderH) / 2;
+      setBg({ offsetX, offsetY, renderW, renderH });
     };
     update();
     const ro = new ResizeObserver(update);
