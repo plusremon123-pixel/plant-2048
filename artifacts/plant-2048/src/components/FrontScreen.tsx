@@ -737,7 +737,7 @@ function StageNode({ level, status, x, y, scaleX, onClick }: StageNodeProps) {
             width:              badgeSize,
             height:             badgeSize,
             borderRadius:       9999,
-            background:         isDone ? "rgba(80,160,80,0.72)" : isCurrent ? "rgba(230,180,30,0.88)" : "rgba(255,255,255,0.75)",
+            background:         isDone ? "rgba(80,160,80,0.72)" : isCurrent ? "rgba(230,180,30,0.88)" : "rgba(70,70,70,0.88)",
             backdropFilter:     "blur(5px)",
             WebkitBackdropFilter: "blur(5px)",
             boxShadow:          "0 1px 6px rgba(0,0,0,0.08)",
