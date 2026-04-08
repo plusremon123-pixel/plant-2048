@@ -30,7 +30,7 @@ import type { EndlessDifficulty } from "@/utils/endlessModeData";
 /* ============================================================
  * Design constants
  * ============================================================ */
-const DESIGN_W = 1152;
+const DESIGN_W = 1120;
 const DESIGN_H = 2048;
 
 /* ── Background layout (home-bg.svg fills 100% × 100% of container) ── */
@@ -54,26 +54,26 @@ type StageNodeTemplate = {
 /* 20개 노드 — 디자인 좌표 (cx, cy) 기준 center anchor */
 /* 돌길 중앙 center anchor — 레퍼런스 이미지 정밀 트레이싱 후 균등 간격(≈173px) */
 const STAGE_NODE_TEMPLATES: StageNodeTemplate[] = [
-  { stage:  1, cx:  939, cy: 1939 }, // 풍차 앞 길 시작
-  { stage:  2, cx:  824, cy: 1811 }, // 우측 하단 곡선
-  { stage:  3, cx:  669, cy: 1745 }, // 하단 좌로 이동
-  { stage:  4, cx:  498, cy: 1766 }, // 하단 중앙
-  { stage:  5, cx:  333, cy: 1768 }, // 하단 좌측
-  { stage:  6, cx:  217, cy: 1654 }, // 좌측 방향 전환
-  { stage:  7, cx:  165, cy: 1491 }, // 좌측 상향
-  { stage:  8, cx:  182, cy: 1326 }, // 좌측 상단 곡선
-  { stage:  9, cx:  278, cy: 1191 }, // 중앙으로 우이동
-  { stage: 10, cx:  437, cy: 1126 }, // 중앙
-  { stage: 11, cx:  608, cy: 1110 }, // 중앙 우측
-  { stage: 12, cx:  780, cy: 1126 }, // 우측 중앙
-  { stage: 13, cx:  891, cy: 1049 }, // 우측 상향
-  { stage: 14, cx:  930, cy:  881 }, // 우측 상단
-  { stage: 15, cx:  895, cy:  715 }, // 우측 상단 곡선
-  { stage: 16, cx:  776, cy:  594 }, // 상단 좌로 이동
-  { stage: 17, cx:  623, cy:  514 }, // 상단 중앙
-  { stage: 18, cx:  461, cy:  455 }, // 상단 좌측
-  { stage: 19, cx:  338, cy:  357 }, // 상단 좌측 상향
-  { stage: 20, cx:  390, cy:  203 }, // 상단 도착
+  { stage:  1, cx:  914, cy: 1718 },
+  { stage:  2, cx:  856, cy: 1588 },
+  { stage:  3, cx:  716, cy: 1523 },
+  { stage:  4, cx:  560, cy: 1548 },
+  { stage:  5, cx:  395, cy: 1558 },
+  { stage:  6, cx:  264, cy: 1483 },
+  { stage:  7, cx:  217, cy: 1353 },
+  { stage:  8, cx:  304, cy: 1235 },
+  { stage:  9, cx:  466, cy: 1194 },
+  { stage: 10, cx:  629, cy: 1206 },
+  { stage: 11, cx:  798, cy: 1183 },
+  { stage: 12, cx:  898, cy: 1064 },
+  { stage: 13, cx:  873, cy:  934 },
+  { stage: 14, cx:  779, cy:  828 },
+  { stage: 15, cx:  659, cy:  756 },
+  { stage: 16, cx:  524, cy:  722 },
+  { stage: 17, cx:  399, cy:  703 },
+  { stage: 18, cx:  305, cy:  638 },
+  { stage: 19, cx:  415, cy:  567 },
+  { stage: 20, cx:  544, cy:  523 },
 ];
 
 const LEVELS_PER_PAGE = 20;
@@ -400,8 +400,8 @@ function TopAdBanner({ bg }: { bg: BgLayout }) {
  * HomeTitle — title.svg, width 기준 비율 유지
  * ============================================================ */
 function HomeTitle({ bg }: { bg: BgLayout }) {
-  const { rx, ry, scaleX } = toRenderPoint(330, 175, bg);
-  const w = 500 * scaleX;
+  const { rx, ry, scaleX } = toRenderPoint(388, 162, bg);
+  const w = 344 * scaleX;
   return (
     <img
       src="/title.svg"
