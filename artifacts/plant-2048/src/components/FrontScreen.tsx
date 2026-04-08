@@ -653,13 +653,18 @@ function StageNode({ level, status, x, y, scaleX, onClick }: StageNodeProps) {
   const isCurrent   = status === "current";
   const isLocked    = status === "locked";
 
-  const nodeWidth = 144 * scaleX;  // 사과 이미지 1.5배 (96 → 144)
+  const nodeWidth = 144 * scaleX;
 
-  const imgFilter =
-    isDone      ? "saturate(0.6) brightness(0.88)" :
-    isCurrent   ? `drop-shadow(0 0 ${8 * scaleX}px rgba(230,190,30,0.95))` :
-    isLocked    ? "grayscale(1) brightness(1.6)" :
-    /* available */ "grayscale(1) brightness(1.6)";
+  // 상태별 이미지
+  const nodeSrc =
+    isDone    ? "/stage_end.svg"   :   // 플레이 완료
+    isCurrent ? "/stage_stay.svg"  :   // 플레이 중 (현재)
+    /* available / locked */ "/stage_ready.svg";  // 플레이 전
+
+  // 이미지로 상태 표현하므로 filter는 current 강조 glow만 유지
+  const imgFilter = isCurrent
+    ? `drop-shadow(0 0 ${8 * scaleX}px rgba(230,190,30,0.95))`
+    : undefined;
 
   // 노드 이미지(330×300 natural) 기준 — 상자 부분에 자연스럽게 맞도록
   const badgeSize     = Math.max(14, 40 * scaleX);
@@ -705,9 +710,9 @@ function StageNode({ level, status, x, y, scaleX, onClick }: StageNodeProps) {
         }}
         aria-label={`스테이지 ${level}`}
       >
-        {/* stage.svg — 원본 비율 유지 */}
+        {/* 상태별 노드 이미지 */}
         <img
-          src="/stage.svg"
+          src={nodeSrc}
           alt={`스테이지 ${level}`}
           draggable={false}
           style={{
@@ -730,7 +735,7 @@ function StageNode({ level, status, x, y, scaleX, onClick }: StageNodeProps) {
             width:              badgeSize,
             height:             badgeSize,
             borderRadius:       9999,
-            background:         (!isDone && !isCurrent) ? "rgba(70,70,70,0.88)" : "rgba(255,255,255,0.42)",
+            background:         isDone ? "rgba(80,160,80,0.72)" : isCurrent ? "rgba(230,180,30,0.88)" : "rgba(70,70,70,0.75)",
             backdropFilter:     "blur(5px)",
             WebkitBackdropFilter: "blur(5px)",
             boxShadow:          "0 1px 6px rgba(0,0,0,0.08)",
