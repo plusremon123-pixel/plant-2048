@@ -33,7 +33,7 @@ import type { EndlessDifficulty } from "@/utils/endlessModeData";
 const DESIGN_W = 1152;
 const DESIGN_H = 2048;
 
-/* ── Background layout (home-bg.png fills 100% × 100% of container) ── */
+/* ── Background layout (home-bg.svg fills 100% × 100% of container) ── */
 interface BgLayout { offsetX: number; offsetY: number; renderW: number; renderH: number }
 
 function toRenderPoint(designX: number, designY: number, bg: BgLayout) {
@@ -220,7 +220,7 @@ export function FrontScreen({
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage:    "url(/home-bg.png)",
+          backgroundImage:    "url(/home-bg.svg)",
           backgroundSize:     "100% 100%",
           backgroundPosition: "top left",
           backgroundRepeat:   "no-repeat",
