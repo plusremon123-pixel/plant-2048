@@ -78,10 +78,13 @@ const MAX_PAGES       = 5;
 
 /* ── Menu data ─────────────────────────────────────────────── */
 interface MenuItemDef {
-  key:    string;
-  x:      number;
-  y:      number;
-  svgSrc: string;
+  key:         string;
+  x:           number;
+  y:           number;
+  svgSrc:      string;
+  bgColor:     string;   // 카드 배경색 (텍스트 오버레이 배경)
+  textColor:   string;   // 카드 텍스트 색상
+  textTopRatio: number;  // SVG 내 텍스트 시작 위치 (0~1, cardH 기준)
 }
 
 type NodeStatus = "done" | "current" | "available" | "locked";
@@ -171,16 +174,23 @@ export function FrontScreen({
     if (status !== "locked") onStartGame();
   };
 
-  /* 메뉴 데이터 — 22.svg 디자인 좌표 기준 (1120×2048) */
+  /* 메뉴 데이터 — 22.svg 디자인 좌표 기준 (1120×2048)
+   * textTopRatio: SVG 텍스트 시작 y (카드 공간 기준) / 179
+   *   mission/card: (291.8-166)/179 ≈ 0.703
+   *   infinite:     (735.3-592)/179 ≈ 0.800
+   *   shop:         (298.6-166)/179 ≈ 0.741
+   *   settings:     (501.9-379)/179 ≈ 0.687
+   *   subscribe:    (721.9-592)/179 ≈ 0.726
+   */
   const leftMenuItems: MenuItemDef[] = [
-    { key: "mission",  x:  37, y: 166, svgSrc: "/menu-mission.svg"  },
-    { key: "card",     x:  37, y: 379, svgSrc: "/menu-card.svg"     },
-    { key: "infinite", x:  37, y: 592, svgSrc: "/menu-infinite.svg" },
+    { key: "mission",  x:  37, y: 166, svgSrc: "/menu-mission.svg",  bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.70 },
+    { key: "card",     x:  37, y: 379, svgSrc: "/menu-card.svg",     bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.70 },
+    { key: "infinite", x:  37, y: 592, svgSrc: "/menu-infinite.svg", bgColor: "#7F239D", textColor: "#F4FFF8", textTopRatio: 0.80 },
   ];
   const rightMenuItems: MenuItemDef[] = [
-    { key: "shop",      x: 906, y: 166, svgSrc: "/menu-shop.svg"      },
-    { key: "settings",  x: 906, y: 379, svgSrc: "/menu-settings.svg"  },
-    { key: "subscribe", x: 906, y: 592, svgSrc: "/menu-subscribe.svg" },
+    { key: "shop",      x: 906, y: 166, svgSrc: "/menu-shop.svg",      bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.74 },
+    { key: "settings",  x: 906, y: 379, svgSrc: "/menu-settings.svg",  bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.68 },
+    { key: "subscribe", x: 906, y: 592, svgSrc: "/menu-subscribe.svg", bgColor: "#FFAE00", textColor: "#6D1D00", textTopRatio: 0.73 },
   ];
 
   const menuLabel: Record<string, string> = {
@@ -478,10 +488,36 @@ function HomeMenuButton({ item, label, badge, bg, onClick }: HomeMenuButtonProps
       {/* 22.svg에서 추출한 메뉴 카드 SVG — 원본 디자인 그대로 사용 */}
       <img
         src={item.svgSrc}
-        alt={label}
+        alt=""
         draggable={false}
         style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
       />
+      {/* 번역 라벨 오버레이 — SVG 내 고정 한국어 텍스트를 덮고 다국어 표시 */}
+      <div
+        style={{
+          position:       "absolute",
+          left:           6 * scaleX,
+          right:          6 * scaleX,
+          top:            item.textTopRatio * cardH,
+          bottom:         (6 / 179) * cardH,  // shadow 영역 제외
+          background:     item.bgColor,
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          pointerEvents:  "none",
+        }}
+      >
+        <span style={{
+          fontSize:   Math.max(9, 14 * scaleX),
+          fontWeight: 800,
+          color:      item.textColor,
+          lineHeight: 1,
+          textAlign:  "center",
+          whiteSpace: "nowrap",
+        }}>
+          {label}
+        </span>
+      </div>
     </button>
   );
 }
