@@ -31,19 +31,11 @@ import { CARDS, LOADOUT_ITEMS, CARD_COLLECTION } from "@/utils/loadoutData";
 import { ApplyXpResult } from "@/hooks/usePlayer";
 import { MissionId, WeeklyMissionId } from "@/utils/missionData";
 import {
-  getCurrentWeekCategory,
-  addDogamItem,
-  loadDogamCollection,
-  MAX_ITEM_COUNT,
-  type DogamItem,
-} from "@/utils/dogamData";
-import {
   incrementGameCount,
   shouldShowInterstitialAd,
   shouldShowFailureAd,
   markInterstitialAdShown,
 } from "@/utils/adService";
-import { recordGameScore } from "@/utils/rankingData";
 import { getStageConfig } from "@/utils/stageData";
 import {
   SubscriptionState,
@@ -203,20 +195,8 @@ export default function Game({
   const [endTile,   setEndTile]   = useState(0);
   const [playerSnapshot, setPlayerSnapshot] = useState<PlayerData>(player);
 
-  /* ── 도감 드롭 추적 (판 단위 리셋) ──────────────────────── */
-  const droppedItemsThisRunRef  = useRef<string[]>([]);
-  const droppedCountThisRunRef  = useRef(0);
-  const sessionDogamItemsRef    = useRef<DogamItem[]>([]); // 이번 판 수집 아이템 전체
-
   /* ── 광고 오버레이 상태 ───────────────────────────────── */
   const [showAdOverlay, setShowAdOverlay] = useState(false);
-
-  const [dogamDrop, setDogamDrop] = useState<{
-    item:     DogamItem;
-    newCount: number;
-  } | null>(null);
-  const [dogamFillPct,       setDogamFillPct]       = useState(0);
-  const [endSessionDogamItems, setEndSessionDogamItems] = useState<DogamItem[]>([]);
 
   /* ── 미션: 64 타일 달성 / 128 타일 달성 (중복 방지 ref) ── */
   const mission64ReportedRef  = useRef(false);
@@ -234,39 +214,6 @@ export default function Game({
     }
   }, [highestTile]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── 도감 드롭: 1000점마다 1개, 최대 5개 ───────────────── */
-  useEffect(() => {
-    // 1000점 단위로 드롭 수 계산
-    const targetDropCount = Math.min(5, Math.floor(score / 1000));
-    if (targetDropCount <= droppedCountThisRunRef.current) return;
-
-    const category  = getCurrentWeekCategory();
-    const remaining = category.items.filter(
-      (it) => !droppedItemsThisRunRef.current.includes(it.id),
-    );
-    if (remaining.length === 0) {
-      droppedCountThisRunRef.current++;
-      return;
-    }
-
-    const picked = remaining[Math.floor(Math.random() * remaining.length)];
-    droppedItemsThisRunRef.current = [...droppedItemsThisRunRef.current, picked.id];
-    droppedCountThisRunRef.current++;
-
-    const prevCount = loadDogamCollection()[picked.id] ?? 0;
-    addDogamItem(picked.id);
-    const newCount  = prevCount + 1;
-    const prevPct   = Math.min(100, Math.round((prevCount / MAX_ITEM_COUNT) * 100));
-    const newPct    = Math.min(100, Math.round((newCount  / MAX_ITEM_COUNT) * 100));
-
-    sessionDogamItemsRef.current = [...sessionDogamItemsRef.current, picked];
-
-    setDogamDrop({ item: picked, newCount });
-    setDogamFillPct(prevPct);
-    setTimeout(() => setDogamFillPct(newPct), 50);
-    setTimeout(() => { setDogamDrop(null); setDogamFillPct(0); }, 2000);
-  }, [score]); // eslint-disable-line react-hooks/exhaustive-deps
-
   /* hasLost / showWinModal 변화 감지 → 종료 모달 트리거 */
   useEffect(() => {
     if ((hasLost || showWinModal) && !xpAwardedRef.current && !showEndModal) {
@@ -275,7 +222,6 @@ export default function Game({
       setEndScore(score);
       setEndTile(highestTile);
       setPlayerSnapshot({ ...player });
-      setEndSessionDogamItems([...sessionDogamItemsRef.current]);
       setShowEndModal(true);
 
       /* 미션: 3판 플레이 */
@@ -418,9 +364,6 @@ export default function Game({
     /* 게임 코인 지급 (골드 부스트 배율 적용됨) */
     onEarnCoins(boostedCoins);
 
-    /* 랭킹 점수 기록 (누적 + 최고점 갱신) */
-    recordGameScore(endScore);
-
     /* 일일 미션: 500점 달성 */
     if (endScore >= 500) updateMission("score_500");
 
@@ -463,9 +406,6 @@ export default function Game({
     xpAwardedRef.current           = false;
     mission64ReportedRef.current   = false;
     mission128ReportedRef.current  = false;
-    droppedItemsThisRunRef.current  = [];
-    droppedCountThisRunRef.current  = 0;
-    sessionDogamItemsRef.current    = [];
 
     setTileSelectCb(null);
     setEmptyCellSelectCb(null);
@@ -504,9 +444,6 @@ export default function Game({
     xpAwardedRef.current           = false;
     mission64ReportedRef.current   = false;
     mission128ReportedRef.current  = false;
-    droppedItemsThisRunRef.current  = [];
-    droppedCountThisRunRef.current  = 0;
-    sessionDogamItemsRef.current    = [];
     setTileSelectCb(null);
     setEmptyCellSelectCb(null);
     buildRuntime(); // 같은 로드아웃으로 재시작
@@ -518,9 +455,6 @@ export default function Game({
     xpAwardedRef.current           = false;
     mission64ReportedRef.current   = false;
     mission128ReportedRef.current  = false;
-    droppedItemsThisRunRef.current  = [];
-    droppedCountThisRunRef.current  = 0;
-    sessionDogamItemsRef.current    = [];
     setTileSelectCb(null);
     setEmptyCellSelectCb(null);
     setShowLoadout(true); // 홈 → 다시 로드아웃 선택
@@ -681,8 +615,6 @@ export default function Game({
                     setEmptyCellSelectCb(null);
                     return;
                   }
-                  /* 이동 시 도감 오버레이 즉시 닫기 */
-                  if (dogamDrop) { setDogamDrop(null); setDogamFillPct(0); }
                   handleMove(dir);
                 }}
                 themeId="plant"
@@ -692,34 +624,6 @@ export default function Game({
                 onEmptyCellClick={handleBoardEmptyCellClick}
               />
 
-              {/* ── 도감 획득 오버레이 (보드 중앙, 2초 or 이동 시 닫힘) ── */}
-              {dogamDrop && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                  <div
-                    className="rounded-2xl px-8 py-5 flex flex-col items-center gap-2 animate-modal-slide-up"
-                    style={{ backgroundColor: "rgba(0,0,0,0.65)" }}
-                  >
-                    <span className="text-5xl">{dogamDrop.item.emoji}</span>
-                    <p className="text-white font-bold text-sm mt-1">
-                      {t("game.dogamCollected", { name: dogamDrop.item.name })}
-                    </p>
-                    <div className="flex items-center gap-2 w-36">
-                      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-                        <div
-                          className="h-full bg-emerald-400 rounded-full"
-                          style={{
-                            width: `${dogamFillPct}%`,
-                            transition: "width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)",
-                          }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-white/70 font-bold shrink-0">
-                        {dogamDrop.newCount}/{MAX_ITEM_COUNT}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </main>
 
             {/* ── 액션 바 (보드 아래) ──────────────────────────── */}

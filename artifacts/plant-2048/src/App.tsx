@@ -10,7 +10,7 @@
  *   두 화면을 200vw 트랙에 배치 → translateX 슬라이드
  * ============================================================ */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAppState } from "@/hooks/useAppState";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useMissions } from "@/hooks/useMissions";
@@ -29,12 +29,6 @@ import {
   loadInventory, saveInventory,
   type Inventory, type ShopItemId,
 } from "@/utils/shopData";
-import {
-  checkPeriodTransitions,
-  getPendingRewards,
-  claimReward,
-  type PendingReward,
-} from "@/utils/rankingData";
 
 /* ── 초기 선물: 훅 실행 전 localStorage에 직접 반영 ─────── */
 giveInitialGiftIfNeeded();
@@ -56,22 +50,6 @@ export default function App() {
 
   /* ── 인벤토리 (홈 상점용 — Game.tsx의 useShop과 별개로 관리) */
   const [inventory, setInventory] = useState<Inventory>(loadInventory);
-
-  /* ── 랭킹 보상 ──────────────────────────────────────────── */
-  const [rankingRewards, setRankingRewards] = useState<PendingReward[]>([]);
-
-  /* 앱 마운트 시 미수령 보상 체크 */
-  useEffect(() => {
-    checkPeriodTransitions();
-    const pending = getPendingRewards();
-    if (pending.length > 0) setRankingRewards(pending);
-  }, []);
-
-  const handleClaimRankingReward = (periodKey: string) => {
-    const coins = claimReward(periodKey);
-    if (coins > 0) addCoins(coins);
-    setRankingRewards((prev) => prev.filter((r) => r.periodKey !== periodKey));
-  };
 
   const atFront   = currentScreen === "front";
   const atEndless = currentScreen === "endless";
@@ -109,13 +87,10 @@ export default function App() {
     goToEndless();
   };
 
-  /* 홈 화면으로 돌아올 때 플레이어/인벤토리 동기화 + 랭킹 보상 체크 */
+  /* 홈 화면으로 돌아올 때 플레이어/인벤토리 동기화 */
   const handleGoToFront = () => {
     reloadPlayer();
     setInventory(loadInventory()); // Game.tsx에서 구매한 아이템 반영
-    checkPeriodTransitions();
-    const pending = getPendingRewards();
-    if (pending.length > 0) setRankingRewards(pending);
     goToFront();
   };
 
@@ -153,8 +128,6 @@ export default function App() {
             onBuyItem={handleBuyItem}
             settings={settings}
             onToggleSetting={toggleSetting}
-            rankingRewards={rankingRewards}
-            onClaimRankingReward={handleClaimRankingReward}
             isPremiumActive={isPremiumActive}
             onBuyPremium={buyPremium}
             onStartEndless={handleStartEndless}

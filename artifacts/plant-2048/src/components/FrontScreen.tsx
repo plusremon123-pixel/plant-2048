@@ -15,14 +15,11 @@ import {
 import { getAdCoinState } from "@/utils/adService";
 import { type Inventory, type ShopItemId } from "@/utils/shopData";
 import type { GameSettings } from "@/hooks/useSettings";
-import { type PendingReward } from "@/utils/rankingData";
 import { useTranslation } from "@/i18n";
-import { RankingModal }           from "./modals/RankingModal";
 import { ItemsModal }             from "./modals/ItemsModal";
 import { CardCollectionModal }    from "./modals/CardCollectionModal";
 import { HomeShopModal }          from "./modals/HomeShopModal";
 import { SettingsModal }          from "./modals/SettingsModal";
-import { DogamModal }             from "./modals/DogamModal";
 import { PremiumPassModal }       from "./modals/PremiumPassModal";
 import { EndlessDifficultyModal } from "./modals/EndlessDifficultyModal";
 import type { EndlessDifficulty } from "@/utils/endlessModeData";
@@ -81,18 +78,16 @@ const MAX_PAGES       = 5;
 
 /* ── Menu data ─────────────────────────────────────────────── */
 interface MenuItemDef {
-  key:       string;
-  x:         number;
-  y:         number;
-  imageSrc?: string;
-  emoji?:    string;
-  highlight?: boolean;
+  key:    string;
+  x:      number;
+  y:      number;
+  svgSrc: string;
 }
 
 type NodeStatus = "done" | "current" | "available" | "locked";
 
 /* ── Active modal type ─────────────────────────────────────── */
-type ActiveModal = "ranking" | "items" | "cards" | "shop" | "settings" | "dogam" | "premium" | "endless" | null;
+type ActiveModal = "items" | "cards" | "shop" | "settings" | "premium" | "endless" | null;
 
 /* ── Props ─────────────────────────────────────────────────── */
 interface FrontScreenProps {
@@ -110,8 +105,6 @@ interface FrontScreenProps {
   onBuyItem?:             (id: ShopItemId, cost: number) => boolean;
   settings?:              GameSettings;
   onToggleSetting?:       (key: keyof GameSettings) => void;
-  rankingRewards?:        PendingReward[];
-  onClaimRankingReward?:  (periodKey: string) => void;
   isPremiumActive?:       boolean;
   onBuyPremium?:          () => Promise<void>;
   onStartEndless?:        (difficulty: EndlessDifficulty, resume: boolean) => void;
@@ -131,7 +124,6 @@ export function FrontScreen({
   onEarnCoins, onAdWatched,
   inventory, onBuyItem,
   settings = DEFAULT_SETTINGS, onToggleSetting,
-  rankingRewards = [], onClaimRankingReward,
   isPremiumActive = false, onBuyPremium,
   onStartEndless,
 }: FrontScreenProps) {
@@ -179,30 +171,25 @@ export function FrontScreen({
     if (status !== "locked") onStartGame();
   };
 
-  /* 메뉴 데이터 (label은 렌더 시 t() 적용) */
-  // 카드 간 여백 1/2 축소: edge gap 70→35, center 간격 170+35=205, 시작 y=205 고정
+  /* 메뉴 데이터 — 22.svg 디자인 좌표 기준 (1120×2048) */
   const leftMenuItems: MenuItemDef[] = [
-    { key: "mission",  x:  38, y: 205, imageSrc: "/icons/icon-mission.png" },
-    { key: "ranking",  x:  38, y: 410, imageSrc: "/icons/icon-ranking.png" },
-    { key: "dogam",    x:  38, y: 615, imageSrc: "/icons/icon-book.png"    },
-    { key: "endless",  x:  38, y: 820, emoji: "♾️"                         },
+    { key: "mission",  x:  37, y: 166, svgSrc: "/menu-mission.svg"  },
+    { key: "card",     x:  37, y: 379, svgSrc: "/menu-card.svg"     },
+    { key: "infinite", x:  37, y: 592, svgSrc: "/menu-infinite.svg" },
   ];
   const rightMenuItems: MenuItemDef[] = [
-    { key: "cards",    x: 944, y: 205, imageSrc: "/icons/icon-card.png"    },
-    { key: "shop",     x: 944, y: 410, imageSrc: "/icons/icon-shop.png"    },
-    { key: "settings", x: 944, y: 615, emoji: "⚙️"                         },
-    { key: "premium",  x: 944, y: 820, emoji: isPremiumActive ? "💎" : "✨", highlight: !isPremiumActive },
+    { key: "shop",      x: 906, y: 166, svgSrc: "/menu-shop.svg"      },
+    { key: "settings",  x: 906, y: 379, svgSrc: "/menu-settings.svg"  },
+    { key: "subscribe", x: 906, y: 592, svgSrc: "/menu-subscribe.svg" },
   ];
 
   const menuLabel: Record<string, string> = {
-    mission:  t("menu.missions"),
-    ranking:  t("menu.ranking"),
-    dogam:    t("menu.dogam"),
-    endless:  t("menu.endless"),
-    cards:    t("menu.cards"),
-    shop:     t("menu.shop"),
-    settings: t("menu.settings"),
-    premium:  isPremiumActive ? t("menu.premium") : t("menu.subscribe"),
+    mission:   t("menu.missions"),
+    card:      t("menu.cards"),
+    infinite:  t("menu.endless"),
+    shop:      t("menu.shop"),
+    settings:  t("menu.settings"),
+    subscribe: isPremiumActive ? t("menu.premium") : t("menu.subscribe"),
   };
 
   const menuBadge: Partial<Record<string, number>> = {
@@ -210,14 +197,12 @@ export function FrontScreen({
   };
 
   const menuOnClick: Record<string, () => void> = {
-    mission:  () => setShowMissionModal(true),
-    ranking:  () => setActiveModal("ranking"),
-    dogam:    () => setActiveModal("dogam"),
-    endless:  () => setActiveModal("endless"),
-    cards:    () => setActiveModal("cards"),
-    shop:     () => setActiveModal("shop"),
-    settings: () => setActiveModal("settings"),
-    premium:  () => setActiveModal("premium"),
+    mission:   () => setShowMissionModal(true),
+    card:      () => setActiveModal("cards"),
+    infinite:  () => setActiveModal("endless"),
+    shop:      () => setActiveModal("shop"),
+    settings:  () => setActiveModal("settings"),
+    subscribe: () => setActiveModal("premium"),
   };
 
   const ready = bg.renderW > 0 && bg.renderH > 0;
@@ -296,7 +281,6 @@ export function FrontScreen({
         />
       )}
 
-      {activeModal === "ranking" && <RankingModal onClose={closeModal} />}
 
       {activeModal === "cards" && (
         <CardCollectionModal
@@ -342,36 +326,6 @@ export function FrontScreen({
         <SettingsModal settings={settings} onToggle={onToggleSetting} onClose={closeModal} />
       )}
 
-      {activeModal === "dogam" && <DogamModal onClose={closeModal} />}
-
-      {/* ── 랭킹 보상 팝업 ──────────────────────────────────── */}
-      {rankingRewards.length > 0 && onClaimRankingReward && createPortal(
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-[300px] bg-white rounded-3xl p-6 shadow-2xl animate-modal-slide-up text-center">
-            <div className="w-16 h-16 bg-yellow-50 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3">🏆</div>
-            <h3 className="text-base font-black text-foreground mb-1">{t("ranking.rewardPopupTitle")}</h3>
-            <p className="text-xs text-foreground/50 mb-1">
-              {t("ranking.rewardPeriodRank", {
-                period: rankingRewards[0].type === "daily"  ? t("ranking.periodDaily")   :
-                        rankingRewards[0].type === "weekly" ? t("ranking.periodWeekly")  :
-                        t("ranking.periodMonthly"),
-                rank: rankingRewards[0].rank,
-              })}
-            </p>
-            <p className="text-2xl font-black text-amber-500 mb-5">🪙 {rankingRewards[0].coins.toLocaleString()}</p>
-            <button
-              onClick={() => onClaimRankingReward(rankingRewards[0].periodKey)}
-              className="w-full py-3 rounded-2xl bg-primary text-white font-black text-sm shadow-sm hover:bg-primary-hover active:scale-95 transition-all"
-            >{t("ranking.claimReward")}</button>
-            {rankingRewards.length > 1 && (
-              <p className="mt-2 text-[10px] text-foreground/35">
-                {t("ranking.moreRewards", { count: rankingRewards.length - 1 })}
-              </p>
-            )}
-          </div>
-        </div>,
-        document.body,
-      )}
     </div>
   );
 }
@@ -466,90 +420,68 @@ interface HomeMenuButtonProps {
 }
 
 function HomeMenuButton({ item, label, badge, bg, onClick }: HomeMenuButtonProps) {
-  const { rx, ry, scaleX, scaleY } = toRenderPoint(item.x, item.y, bg);
-  // 정사각형 카드: scaleX 기준으로 양쪽 동일 크기
-  const cardSize = Math.max(62, 170 * scaleX);
-  const cardW    = cardSize;
-  const cardH    = cardSize;
-  const radius   = Math.max(14, 28 * scaleX);
-  const iconSize = Math.max(36, cardSize * 0.60);
-  const fontSize = Math.max(10, 15 * scaleX);
+  const { rx, ry, scaleX } = toRenderPoint(item.x, item.y, bg);
+  // 22.svg 카드 원본 크기: 173×179 (shadow 포함)
+  const cardW = 173 * scaleX;
+  const cardH = 179 * scaleX;
 
   // cover 모드에서 메뉴가 화면 밖으로 잘리지 않도록 x 위치 클램핑
   const screenPad = 6;
   const isLeftMenu = item.x < DESIGN_W / 2;
   const clampedX = isLeftMenu
-    ? Math.max(screenPad, rx)                                      // 왼쪽: 최소 screenPad
-    : Math.min(bg.containerW - cardW - screenPad, rx);             // 오른쪽: 최대 화면 우측 끝
+    ? Math.max(screenPad, rx)
+    : Math.min(bg.containerW - cardW - screenPad, rx);
 
   return (
     <button
       onClick={onClick}
+      onPointerDown={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(0.95)"; }}
+      onPointerUp={(e)   => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+      onPointerLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+      aria-label={label}
       style={{
         position:       "absolute",
         left:           clampedX,
         top:            ry,
         width:          cardW,
         height:         cardH,
-        borderRadius:   radius,
-        background:     item.highlight
-          ? "rgba(255,240,200,0.93)"
-          : "rgba(255,248,235,0.90)",
-        border:         item.highlight
-          ? "1.5px solid rgba(200,160,60,0.55)"
-          : "1px solid rgba(180,150,100,0.22)",
-        boxShadow:      "0 6px 18px rgba(80,50,20,0.10)",
-        backdropFilter: "blur(6px)",
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     "center",
-        justifyContent: "center",
-        gap:            6,
-        padding:        8,
+        background:     "transparent",
+        border:         "none",
+        padding:        0,
         cursor:         "pointer",
         zIndex:         20,
         pointerEvents:  "auto",
-        transition:     "transform 0.15s ease, box-shadow 0.15s ease",
+        transition:     "transform 0.15s ease",
       }}
     >
       {badge !== undefined && (
         <span style={{
           position:       "absolute",
-          top:            4 * scaleY,
+          top:            4 * scaleX,
           right:          4 * scaleX,
-          minWidth:       16 * scaleX,
-          height:         16 * scaleX,
+          minWidth:       18 * scaleX,
+          height:         18 * scaleX,
           background:     "#f87171",
           color:          "#fff",
-          fontSize:       10 * scaleX,
+          fontSize:       11 * scaleX,
           fontWeight:     700,
           borderRadius:   9999,
           display:        "flex",
           alignItems:     "center",
           justifyContent: "center",
-          padding:        `0 ${3 * scaleX}px`,
+          padding:        `0 ${4 * scaleX}px`,
+          zIndex:         1,
         }}>
           {badge}
         </span>
       )}
-
-      {/* 아이콘 wrapper — contain 처리 */}
-      <div style={{ width: iconSize, height: iconSize, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {item.imageSrc ? (
-          <img
-            src={item.imageSrc}
-            alt={label}
-            draggable={false}
-            style={{ maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", objectFit: "contain", display: "block" }}
-          />
-        ) : (
-          <span style={{ fontSize: iconSize * 0.65, lineHeight: 1 }}>{item.emoji}</span>
-        )}
-      </div>
-
-      <span style={{ fontSize, fontWeight: 700, color: "#6b5a42", lineHeight: 1, textAlign: "center" }}>
-        {label}
-      </span>
+      {/* 22.svg에서 추출한 메뉴 카드 SVG — 원본 디자인 그대로 사용 */}
+      <img
+        src={item.svgSrc}
+        alt={label}
+        draggable={false}
+        style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
+      />
     </button>
   );
 }
