@@ -175,22 +175,22 @@ export function FrontScreen({
   };
 
   /* 메뉴 데이터 — 22.svg 디자인 좌표 기준 (1120×2048)
-   * textTopRatio: SVG 텍스트 시작 y (카드 공간 기준) / 179
-   *   mission/card: (291.8-166)/179 ≈ 0.703
-   *   infinite:     (735.3-592)/179 ≈ 0.800
-   *   shop:         (298.6-166)/179 ≈ 0.741
-   *   settings:     (501.9-379)/179 ≈ 0.687
-   *   subscribe:    (721.9-592)/179 ≈ 0.726
+   * textTopRatio: SVG 텍스트 시작 y (카드 공간 기준, 5px 여유) / 179
+   *   mission/card: minTextY≈289~502, card-rel≈123, ratio≈0.689 → safe 0.65
+   *   infinite:     minTextY≈720,    card-rel≈128, ratio≈0.717 → safe 0.68
+   *   shop:         minTextY≈294,    card-rel≈128, ratio≈0.717 → safe 0.68
+   *   settings:     minTextY≈502,    card-rel≈123, ratio≈0.687 → safe 0.65
+   *   subscribe:    minTextY≈722,    card-rel≈130, ratio≈0.726 → safe 0.69
    */
   const leftMenuItems: MenuItemDef[] = [
-    { key: "mission",  x:  37, y: 166, svgSrc: "/menu-mission.svg",  bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.70 },
-    { key: "card",     x:  37, y: 379, svgSrc: "/menu-card.svg",     bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.70 },
-    { key: "infinite", x:  37, y: 592, svgSrc: "/menu-infinite.svg", bgColor: "#7F239D", textColor: "#F4FFF8", textTopRatio: 0.80 },
+    { key: "mission",  x:  37, y: 166, svgSrc: "/menu-mission.svg",  bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.65 },
+    { key: "card",     x:  37, y: 379, svgSrc: "/menu-card.svg",     bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.65 },
+    { key: "infinite", x:  37, y: 592, svgSrc: "/menu-infinite.svg", bgColor: "#7F239D", textColor: "#F4FFF8", textTopRatio: 0.68 },
   ];
   const rightMenuItems: MenuItemDef[] = [
-    { key: "shop",      x: 906, y: 166, svgSrc: "/menu-shop.svg",      bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.74 },
-    { key: "settings",  x: 906, y: 379, svgSrc: "/menu-settings.svg",  bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.68 },
-    { key: "subscribe", x: 906, y: 592, svgSrc: "/menu-subscribe.svg", bgColor: "#FFAE00", textColor: "#6D1D00", textTopRatio: 0.73 },
+    { key: "shop",      x: 906, y: 166, svgSrc: "/menu-shop.svg",      bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.68 },
+    { key: "settings",  x: 906, y: 379, svgSrc: "/menu-settings.svg",  bgColor: "#F8E6C6", textColor: "#4C2E0C", textTopRatio: 0.65 },
+    { key: "subscribe", x: 906, y: 592, svgSrc: "/menu-subscribe.svg", bgColor: "#FFAE00", textColor: "#6D1D00", textTopRatio: 0.69 },
   ];
 
   const menuLabel: Record<string, string> = {
