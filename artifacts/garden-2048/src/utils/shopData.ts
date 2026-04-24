@@ -12,6 +12,7 @@ export type ShopItemId =
   | "undo"
   | "remove_tile"
   | "board_clean"
+  | "remove_obstacle"
   | "skin_unlock"
   | "theme_unlock";
 
@@ -43,7 +44,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     id: "remove_tile",
     name: "타일 제거",
-    description: "가장 낮은 값의 타일 하나를 제거합니다",
+    description: "원하는 타일 1개 선택 후 제거",
     emoji: "🗑️",
     cost: 180,          /* ✏️ 가격 */
     category: "action",
@@ -55,6 +56,15 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: "상위 4개 타일만 남기고 나머지를 모두 제거합니다",
     emoji: "🧹",
     cost: 350,          /* ✏️ 가격 */
+    category: "action",
+    consumable: true,
+  },
+  {
+    id: "remove_obstacle",
+    name: "장애물 제거",
+    description: "장애물 1개를 즉시 제거합니다",
+    emoji: "⛏️",
+    cost: 400,          /* ✏️ 가격 */
     category: "action",
     consumable: true,
   },
@@ -83,11 +93,12 @@ export const SHOP_ITEMS: ShopItem[] = [
 export type Inventory = Record<ShopItemId, number>;
 
 const DEFAULT_INVENTORY: Inventory = {
-  undo:         0,
-  remove_tile:  0,
-  board_clean:  0,
-  skin_unlock:  0,
-  theme_unlock: 0,
+  undo:             0,
+  remove_tile:      0,
+  board_clean:      0,
+  remove_obstacle:  0,
+  skin_unlock:      0,
+  theme_unlock:     0,
 };
 
 /* ============================================================
@@ -107,8 +118,8 @@ export interface GoldShopItem {
 
 export const GOLD_SHOP_ITEMS: GoldShopItem[] = [
   { id: "gold_pack_1000",  amount: 1000,  priceLabel: "₩1,200" },
-  { id: "gold_pack_3000",  amount: 3000,  priceLabel: "₩3,500", badge: "추천" },
-  { id: "gold_pack_5000",  amount: 5000,  priceLabel: "₩5,900", badge: "베스트" },
+  { id: "gold_pack_3000",  amount: 3000,  priceLabel: "₩3,500", badge: "recommend" },
+  { id: "gold_pack_5000",  amount: 5000,  priceLabel: "₩5,900", badge: "best" },
   { id: "gold_pack_10000", amount: 10000, priceLabel: "₩9,900" },
 ];
 
@@ -147,11 +158,12 @@ export const loadInventory = (): Inventory => {
     if (!raw) return { ...DEFAULT_INVENTORY };
     const parsed = JSON.parse(raw) as Partial<Inventory>;
     return {
-      undo:         parsed.undo         ?? 0,
-      remove_tile:  parsed.remove_tile  ?? 0,
-      board_clean:  parsed.board_clean  ?? 0,
-      skin_unlock:  parsed.skin_unlock  ?? 0,
-      theme_unlock: parsed.theme_unlock ?? 0,
+      undo:             parsed.undo             ?? 0,
+      remove_tile:      parsed.remove_tile      ?? 0,
+      board_clean:      parsed.board_clean      ?? 0,
+      remove_obstacle:  parsed.remove_obstacle  ?? 0,
+      skin_unlock:      parsed.skin_unlock      ?? 0,
+      theme_unlock:     parsed.theme_unlock     ?? 0,
     };
   } catch {
     return { ...DEFAULT_INVENTORY };

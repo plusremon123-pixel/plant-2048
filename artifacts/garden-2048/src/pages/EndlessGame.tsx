@@ -22,6 +22,7 @@ import type { ShopItemId }      from "@/utils/shopData";
 import { loadInventory, saveInventory } from "@/utils/shopData";
 import { EndlessRewardModal }   from "@/components/modals/EndlessRewardModal";
 import { EndlessGameOverModal } from "@/components/modals/EndlessGameOverModal";
+import { EndlessClearModal }    from "@/components/modals/EndlessClearModal";
 
 /* ── 별 파티클 (렌더링 시 한 번만 생성) ───────────────────── */
 const STARS = Array.from({ length: 28 }, (_, i) => ({
@@ -51,12 +52,16 @@ function addItem(itemId: ShopItemId, qty: number) {
 
 /* ── Props ─────────────────────────────────────────────────── */
 interface EndlessGameProps {
-  difficulty:    EndlessDifficulty;
-  resumeSave?:   EndlessSaveData | null;
-  onHome:        () => void;         // 메인 홈 (현재 미사용)
-  onEndlessHome: () => void;         // 무한게임 선택 화면으로
-  onEarnCoins:   (coins: number) => void;
+  difficulty:       EndlessDifficulty;
+  resumeSave?:      EndlessSaveData | null;
+  onHome:           () => void;         // 메인 홈 (현재 미사용)
+  onEndlessHome:    () => void;         // 무한게임 선택 화면으로
+  onEarnCoins:      (coins: number) => void;
+  isPremiumActive?: boolean;            // 구독자: 광고 없이 무료 부활
 }
+
+/* ── 무한 게임 부활 최대 횟수 ─────────────────────────────── */
+const MAX_REVIVES = 3;
 
 /* ── 새로고침 횟수 5회마다 AD 표시 ────────────────────────── */
 const AD_EVERY_N = 5;
@@ -65,7 +70,7 @@ const AD_EVERY_N = 5;
  * 메인 컴포넌트
  * ============================================================ */
 export default function EndlessGame({
-  difficulty, resumeSave, onEndlessHome, onEarnCoins,
+  difficulty, resumeSave, onEndlessHome, onEarnCoins, isPremiumActive = false,
 }: EndlessGameProps) {
   const { t }    = useTranslation();
   const config   = ENDLESS_CONFIGS[difficulty];
@@ -80,13 +85,17 @@ export default function EndlessGame({
     hasWon:      false,
     hasLost:     false,
     boardSize:   gridSize,
+    goalValue:   Number.POSITIVE_INFINITY,   // 무한 모드 = 승리 조건 없음
+    maxTurns:    -1,                          // 무제한 턴
+    turnsLeft:   -1,                          // 무제한 턴
+    thornImmunityTurns: 0,
   } : undefined;
 
   const {
     board, activeTiles, graveyard,
     score, hasLost, highestTile,
-    handleMove, resetGame, undoMove,
-  } = useGame(undefined, gridSize, initialGameState);
+    handleMove, resetGame, undoMultiple,
+  } = useGame(undefined, gridSize, initialGameState, { goalValue: Number.POSITIVE_INFINITY });
 
   const [claimedPhases,    setClaimedPhases]    = useState<number[]>(resumeSave?.claimedPhases ?? []);
   const [pendingReward,    setPendingReward]     = useState<{ phase: 1|2|3 } | null>(null);
@@ -95,9 +104,12 @@ export default function EndlessGame({
   const [showAd,           setShowAd]           = useState(false);
   const [restartCount,     setRestartCount]     = useState(0);
   const [scoreBump,        setScoreBump]        = useState(false);
+  const [showUltimateClear, setShowUltimateClear] = useState(false);
+  const [reviveCount,      setReviveCount]      = useState(0);       // 부활 횟수 (최대 MAX_REVIVES)
   const prevHighestRef = useRef<number>(-1);
   const prevScoreRef   = useRef<number>(-1);
   const pendingRestartRef = useRef(false); // AD 후 재시작 대기
+  const ultimateTriggeredRef = useRef(false); // 32768 달성 1회만 트리거
 
   const tilesList     = Object.values(activeTiles as Record<string, TileData>);
   const graveyardList = graveyard as TileData[];
@@ -131,6 +143,23 @@ export default function EndlessGame({
   useEffect(() => {
     if (hasLost && !pendingReward) setShowGameOver(true);
   }, [hasLost, pendingReward]);
+
+  /* 궁극 클리어 감지 — 32,768 도달 */
+  useEffect(() => {
+    if (ultimateTriggeredRef.current) return;
+    if (highestTile >= 32768) {
+      ultimateTriggeredRef.current = true;
+      setShowUltimateClear(true);
+    }
+  }, [highestTile]);
+
+  /* ── 궁극 클리어 선물 수령 → 아이템 지급 후 홈 이동 ──── */
+  const handleClaimUltimate = useCallback((gifts: { id: ShopItemId; qty: number }[]) => {
+    gifts.forEach((g) => addItem(g.id, g.qty));
+    clearEndlessSave();
+    setShowUltimateClear(false);
+    onEndlessHome();
+  }, [onEndlessHome]);
 
   /* ── 실제 재시작 실행 ──────────────────────────────────── */
   const doRestart = useCallback(() => {
@@ -189,9 +218,10 @@ export default function EndlessGame({
   }, [pendingReward, hasLost, onEarnCoins]);
 
   const handleContinue = useCallback(() => {
+    setReviveCount((c) => c + 1);   // 부활 횟수 증가
     setShowGameOver(false);
-    undoMove();
-  }, [undoMove]);
+    undoMultiple(5);                 // 5턴 전 보드 복원
+  }, [undoMultiple]);
 
   /* 단계 진행 */
   const currentPhaseIdx = claimedPhases.length;
@@ -225,13 +255,7 @@ export default function EndlessGame({
         }} />
       </div>
 
-      {/* ── AD 배너 (상단) ───────────────────────────────────── */}
-      <div
-        className="w-full h-10 flex items-center justify-center text-[11px] font-medium flex-shrink-0 relative z-10 bg-white/55 backdrop-blur-sm border-b border-white/40"
-        style={{ color: "rgba(0,0,0,0.3)" }}
-      >AD</div>
-
-      <div className="relative z-10 w-full max-w-[500px] flex flex-col flex-1 px-4 pb-4">
+      <div className="relative z-10 w-full max-w-[500px] flex flex-col flex-1 px-4 pb-10">
 
         {/* ── 상단 HUD ─────────────────────────────────────────── */}
         <div className="flex items-center justify-between pt-2 pb-3 gap-2">
@@ -254,7 +278,7 @@ export default function EndlessGame({
 
           {/* 중앙: 난이도 뱃지 + 점수 */}
           <div className="flex flex-col items-center gap-1 flex-1">
-            {/* 난이도 뱃지 — 한국어 */}
+            {/* 난이도 뱃지 */}
             <div style={{
               display: "flex", alignItems: "center", gap: 6,
               padding: "4px 14px", borderRadius: 99,
@@ -274,11 +298,11 @@ export default function EndlessGame({
               onAnimationEnd={() => setScoreBump(false)}
               style={{ textAlign: "center" }}
             >
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.08em" }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: "0.08em", marginBottom: 2 }}>
                 SCORE
               </div>
               <div style={{
-                fontSize: 30, fontWeight: 900, color: "#ffffff", lineHeight: 1,
+                fontSize: 32, fontWeight: 900, color: "#ffffff", lineHeight: 1,
                 textShadow: `0 0 20px ${pal.glow}`,
                 fontVariantNumeric: "tabular-nums",
               }}>
@@ -304,15 +328,15 @@ export default function EndlessGame({
               ↺
             </button>
             <div style={{
-              padding: "4px 12px", borderRadius: 10,
+              padding: "6px 14px", borderRadius: 14,
               background: "rgba(255,255,255,0.06)",
               border: `1px solid ${pal.accent}40`,
               textAlign: "center",
             }}>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 700, letterSpacing: "0.06em" }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 700, letterSpacing: "0.08em", marginBottom: 2 }}>
                 BEST
               </div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: pal.accent, lineHeight: 1.2 }}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: pal.accent, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
                 {highestTile || "—"}
               </div>
             </div>
@@ -453,14 +477,21 @@ export default function EndlessGame({
       )}
 
       {/* ── 게임 오버 모달 ──────────────────────────────────────── */}
-      {showGameOver && !pendingReward && (
+      {showGameOver && !pendingReward && !showUltimateClear && (
         <EndlessGameOverModal
           score={score}
           highestTile={highestTile}
+          revived={reviveCount >= MAX_REVIVES}
+          isPremiumActive={isPremiumActive}
           onContinue={handleContinue}
           onRestart={doRestart}
           onHome={onEndlessHome}
         />
+      )}
+
+      {/* ── 궁극 클리어 모달 (32,768 달성) ──────────────────── */}
+      {showUltimateClear && (
+        <EndlessClearModal onClaim={handleClaimUltimate} />
       )}
     </div>
   );
@@ -483,26 +514,38 @@ function MilestoneBar({ config, claimedPhases, progressPct, currentPhaseIdx, acc
 
   return (
     <div style={{
-      padding: "10px 14px", borderRadius: 16,
+      padding: "10px 14px", borderRadius: 18,
       background: "rgba(255,255,255,0.05)",
       border: "1px solid rgba(255,255,255,0.08)",
     }}>
       {/* 상단 라벨 */}
       <div className="flex items-center justify-between mb-2">
-        <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: "0.08em" }}>
-          {allCleared ? "🏆 ALL CLEARED" : `PHASE ${currentPhaseIdx + 1}`}
-        </span>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em", marginBottom: 1 }}>
+            {allCleared ? "🏆 ALL CLEARED" : `PHASE ${currentPhaseIdx + 1}`}
+          </div>
+          {!allCleared && (
+            <div style={{ fontSize: 14, fontWeight: 900, color: "#ffffff", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+              {config.goals[currentPhaseIdx].toLocaleString()}
+            </div>
+          )}
+        </div>
         {!allCleared && (
-          <span style={{ fontSize: 12, fontWeight: 700, color: accent }}>
-            GOAL: {config.goals[currentPhaseIdx].toLocaleString()}
-          </span>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em", marginBottom: 1 }}>
+              진행
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 900, color: accent, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+              {Math.round(progressPct)}%
+            </div>
+          </div>
         )}
       </div>
 
       {/* 진행 바 */}
       <div className="relative">
         <div style={{
-          height: 6, borderRadius: 99,
+          height: 8, borderRadius: 99,
           background: "rgba(255,255,255,0.08)",
           overflow: "hidden", marginBottom: 8,
         }}>
@@ -510,9 +553,9 @@ function MilestoneBar({ config, claimedPhases, progressPct, currentPhaseIdx, acc
             height: "100%",
             width: allCleared ? "100%" : `${progressPct}%`,
             borderRadius: 99,
-            background: `linear-gradient(90deg, ${accent}99 0%, ${accent} 100%)`,
-            boxShadow: `0 0 8px ${glow}`,
-            transition: "width 0.4s ease",
+            background: `linear-gradient(90deg, ${accent}80 0%, ${accent} 100%)`,
+            boxShadow: `0 0 10px ${glow}`,
+            transition: "width 0.5s ease",
           }} />
         </div>
 

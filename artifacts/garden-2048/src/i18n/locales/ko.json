@@ -33,6 +33,7 @@
       "normal": "보통",
       "hard": "어려움"
     },
+    "boardSize": "보드 크기: {{n}}×{{n}}",
     "phase": "{{n}}단계",
     "achieved": "달성!",
     "tileGoal": "타일 목표",
@@ -47,7 +48,11 @@
     "gameOver": "게임 오버",
     "boardFull": "더 이상 이동할 수 없어요",
     "continueAd": "광고 보고 이어하기",
-    "restart": "새로 시작"
+    "restart": "새로 시작",
+    "ultimateClearTitle": "🏆 무한모드 성공!",
+    "ultimateClearDesc": "아이템을 증정합니다",
+    "ultimateClearGift": "3종류 아이템 × 2개씩",
+    "ultimateClearClaim": "선물 받고 종료"
   },
   "menu": {
     "missions": "미션",
@@ -70,13 +75,18 @@
     "stageGoal": "스테이지 {{stage}} 목표",
     "stageGoalPoints": "{{goal}}점",
     "stageShort": "{{points}}점 부족",
-    "goalTile": "목표: {{tile}} 타일 달성",
+    "goal": "목표",
+    "progress": "진행",
+    "goalTile": "{{tile}} 타일 달성",
     "turnsLeft": "남은 턴",
     "coinEarned": "+{{coins}} 코인 획득!",
     "premiumDoubleAuto": "💎 프리미엄 코인 2배 자동 적용!",
     "watchingAd": "광고 시청 중...",
     "watchAdDouble": "📺 광고 보고 코인 2배 받기",
     "doubleApplied": "✅ 2배 코인 적용 완료!",
+    "reviveFree": "무료 부활하기",
+    "reviveAd": "광고 보고 부활하기",
+    "extendTurns": "광고 보고 +30턴",
     "home": "🏠 홈",
     "newGame": "새 게임",
     "nextStage": "다음 스테이지",
@@ -89,15 +99,21 @@
     "removeBlocked": "제거할 타일이 없어요",
     "cloverActive": "점수 +20% 활성",
     "cloverTurns": "({{turns}}턴 남음)",
-    "goalPrompt": "목표: {{goal}}점",
+    "goalPrompt": "{{goal}}점 달성하기",
     "goalProgress": "{{score}} / {{goal}}점",
-    "goalExceeded": "목표 달성! {{goal}}점"
+    "goalExceeded": "달성! {{goal}}점",
+    "ad": "AD",
+    "useItem": "{{name}} 사용",
+    "selectTileToRemove": "제거할 타일을 선택하세요",
+    "selectEmptyCell": "🌻 씨앗을 심을 빈 칸을 선택하세요"
   },
   "loadout": {
     "title": "출발 준비",
     "subtitleWithCard": "카드 1개와 아이템 2개를 선택해 시작하세요",
     "subtitleItemsOnly": "아이템 2개를 선택해 시작하세요",
     "closeLabel": "닫기",
+    "tabBasic": "기본",
+    "tabPremium": "💎 구독",
     "selectCard": "카드 선택",
     "cardCount": "1개 선택",
     "premiumLabel": "프리미엄 카드",
@@ -107,7 +123,8 @@
     "slot": "슬롯 {{n}}",
     "startReady": "게임 시작!",
     "startNeedCard": "선택하세요",
-    "startNeedItem": "아이템을 선택하세요"
+    "startNeedItem": "아이템을 선택하세요",
+    "fixedCard": "이번 스테이지는 카드가 고정되어 있어요!"
   },
   "card": {
     "cactus": "선인장",
@@ -117,26 +134,26 @@
     "dandelion": "민들레",
     "rose": "장미",
     "mushroom": "버섯",
-    "golden_sunflower": "황금 해바라기",
+    "golden_sunflower": "튤립",
     "life_tree": "생명의 나무",
-    "premium_remove": "프리미엄 제거",
+    "premium_remove": "무궁화",
     "cherry": "벚꽃",
     "lotus": "연꽃",
     "bamboo": "대나무",
     "desc": {
-      "cactus": "타일 1개 제거",
-      "sunflower": "빈 칸에 2 타일 생성",
-      "clover": "3턴 점수 +20%",
-      "sprout": "3턴 점수 +20%",
-      "dandelion": "빈 칸 2곳에 씨앗 생성",
-      "rose": "5턴 점수 +30%",
-      "mushroom": "동일한 타일 2개 합치기",
-      "cherry": "준비 중",
-      "lotus": "준비 중",
-      "bamboo": "준비 중",
-      "golden_sunflower": "원하는 위치에\n4 생성",
-      "life_tree": "낮은 타일 자동\n정리",
-      "premium_remove": "장애물 포함\n원하는 타일 제거"
+      "cactus": "타일 1개\n제거",
+      "sunflower": "빈 칸에\n2 타일 생성",
+      "clover": "3턴 동안\n점수 +20%",
+      "sprout": "3턴 동안\n점수 +20%",
+      "dandelion": "빈 칸 2곳에\n씨앗 생성",
+      "rose": "5턴 동안\n점수 +30%",
+      "mushroom": "같은 타일\n2개 합치기",
+      "cherry": "빈 칸 3곳에\n씨앗 배치",
+      "lotus": "낮은 타일\n3개 제거",
+      "bamboo": "장애물\n즉시 제거",
+      "golden_sunflower": "빈 칸 2곳에\n4 타일 배치",
+      "life_tree": "선택 타일\n2배 강화",
+      "premium_remove": "장애물 포함\n3개 제거"
     }
   },
   "item": {
@@ -144,17 +161,19 @@
     "owned": "현재 보유 아이템",
     "total": "총 {{count}}개",
     "useDuring": "게임 중 사용",
-    "undo": { "name": "되돌리기", "desc": "이전 이동 취소" },
-    "clean": { "name": "보드 청소", "desc": "상위 4개 타일만 남김" },
-    "remove": { "name": "타일 제거", "desc": "타일 1개 선택 제거" },
-    "remove_tile": { "name": "타일 제거", "desc": "가장 낮은 값의 타일 하나를 제거합니다" },
-    "board_clean": { "name": "보드 청소", "desc": "상위 4개 타일만 남기고 나머지를 모두 제거합니다" }
+    "undo": { "name": "되돌리기", "desc": "마지막 이동 1회 되돌리기" },
+    "clean": { "name": "보드 청소", "desc": "상위 4개 타일만 남기고 나머지 제거" },
+    "remove": { "name": "타일 제거", "desc": "원하는 타일 1개 선택 후 제거" },
+    "remove_tile": { "name": "타일 제거", "desc": "원하는 타일 1개 선택 후 제거" },
+    "board_clean": { "name": "보드 청소", "desc": "상위 4개 타일만 남기고 나머지 제거" },
+    "remove_obstacle": { "name": "장애물 제거", "desc": "원하는 장애물 1개 선택 후 제거" }
   },
   "shop": {
     "title": "상점",
     "ownedCoins": "보유 코인",
     "tools": "도구",
     "goldPurchase": "골드 구매",
+    "coinCharge": "코인 충전",
     "notEnoughCoins": "💔 코인이 부족해요!",
     "buyComplete": "✅ {{name}} 구매 완료!",
     "purchaseFailed": "❌ 구매에 실패했어요",
@@ -164,10 +183,24 @@
     "premiumActive": "프리미엄 이용 중",
     "premiumPass": "프리미엄 패스",
     "premiumBenefits": "광고 제거 · 코인 2배 · 프리미엄 카드",
-    "premiumBenefitsFull": "광고 제거 · 코인 2배 · 프리미엄 카드 · ₩3,300/월"
+    "premiumBenefitsFull": "광고 제거 · 코인 2배 · 프리미엄 카드 · ₩3,300/월",
+    "premiumSubtitle": "구독하고 게임을 더 즐겁게!",
+    "subscribeCta": "지금 구독하기 →",
+    "manageSubscription": "탭하여 구독 관리 →",
+    "benefitNoAds": "광고 제거",
+    "benefitDoubleCoins": "코인 2배",
+    "benefitPremiumCards": "프리미엄 카드",
+    "benefitXpBoost": "경험치 부스트",
+    "badge_best": "베스트",
+    "badge_recommend": "추천",
+    "price_gold_pack_1000": "₩1,200",
+    "price_gold_pack_3000": "₩3,500",
+    "price_gold_pack_5000": "₩5,900",
+    "price_gold_pack_10000": "₩9,900"
   },
   "premium": {
     "title": "프리미엄 패스",
+    "activeTitle": "프리미엄 이용 중",
     "freeTrialExpired": "무료 체험이 종료되었어요. 계속 사용하실래요?",
     "freeTrialCta": "지금 구독하고 프리미엄을 경험하세요",
     "removeAds": "광고 제거",
@@ -185,7 +218,13 @@
     "premiumCardsSub": "황금 해바라기, 생명의 나무, 프리미엄 제거 카드",
     "doubleCoinsSub": "게임 종료 시 코인이 자동으로 2배 지급돼요",
     "trialDisclaimer": "체험 종료 후 결제되지 않습니다. 직접 구독해야 합니다.",
-    "startTrial": "지금 무료 체험 시작"
+    "startTrial": "지금 무료 체험 시작",
+    "activeBadge": "✓ 프리미엄 이용 중",
+    "startDate": "구독 시작일",
+    "renewalDate": "다음 갱신일",
+    "monthlyAmount": "구독 금액",
+    "monthlyPrice": "₩3,300 / 월",
+    "confirm": "확인"
   },
   "goldBoost": {
     "title": "골드 4배!",
@@ -225,7 +264,12 @@
     "googleBenefit2": "글로벌 랭킹 참여 가능",
     "googleBenefit3": "특별 보상 잠금 해제",
     "googleBenefit4": "기기 변경 시 데이터 유지",
-    "connecting": "연결 중..."
+    "connecting": "연결 중...",
+    "tutorial": "튜토리얼 다시 보기",
+    "premiumSection": "프리미엄 구독",
+    "premiumInfo": "구독 정보 및 혜택 보기",
+    "premiumBenefitShort": "광고 제거 · 코인 2배 · 프리미엄 카드",
+    "premiumActiveLabel": "이용 중"
   },
   "dogam": {
     "title": "도감",
@@ -308,6 +352,8 @@
     "premiumAction": "구독하기 →",
     "lv400Cards": "Lv.400 해금",
     "lv400Badge": "Lv.400 이후 보유",
+    "lv400BadgeUnlocked": "해금됨",
+    "lv400BadgeLocked": "Lv.400 필요",
     "statusComingSoon": "레벨 필요",
     "statusPremiumLocked": "프리미엄 전용",
     "statusPremium": "프리미엄",
@@ -373,5 +419,11 @@
     "removeTileDesc": "{{value}} 타일을 제거할까요?",
     "removeTileCancel": "취소",
     "removeTileConfirm": "제거"
+  },
+  "tile": {
+    "soil": "흙",
+    "thorn": "가시",
+    "thornSpread": "가시",
+    "rock": "바위"
   }
 }

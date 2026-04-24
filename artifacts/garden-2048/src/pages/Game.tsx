@@ -23,9 +23,10 @@ import { Modal } from "@/components/Modal";
 import { GameEndModal } from "@/components/GameEndModal";
 import { ShopModal } from "@/components/ShopModal";
 import { LoadoutModal } from "@/components/LoadoutModal";
+import { CardUnlockOverlay, type CardUnlockGroup } from "@/components/modals/CardUnlockOverlay";
 import { PlayerData } from "@/utils/playerData";
 import { ShopItem, ShopItemId, SHOP_ITEMS, type Inventory } from "@/utils/shopData";
-import { CARDS, LOADOUT_ITEMS, CARD_COLLECTION } from "@/utils/loadoutData";
+import { CARDS, LOADOUT_ITEMS, CARD_COLLECTION, type CardId } from "@/utils/loadoutData";
 import { MissionId, WeeklyMissionId } from "@/utils/missionData";
 import { getSeason } from "@/utils/seasonData";
 import { SEASON_THEMES } from "@/utils/seasonTheme";
@@ -34,12 +35,21 @@ import {
   shouldShowInterstitialAd,
   shouldShowFailureAd,
   markInterstitialAdShown,
+  isNativePlatform,
 } from "@/utils/adService";
 import { getStageConfig } from "@/utils/stageData";
+import { isObstacle } from "@/utils/gameUtils";
 import {
   SubscriptionState,
   isPremiumActive,
 } from "@/utils/subscriptionData";
+
+/* ── 카드 튜토리얼 가이드 매핑 (스테이지 10·11·12) ─────── */
+const GUIDE_CARD: Record<number, { cardId: CardId; msgKo: string; msgEn: string }> = {
+  10: { cardId: 'cactus',    msgKo: '선인장 카드로 방해되는 타일을 제거해보세요!', msgEn: 'Use the Cactus card to remove a blocking tile!' },
+  11: { cardId: 'sunflower', msgKo: '해바라기 카드로 빈 칸에 씨앗을 심어보세요!', msgEn: 'Use the Sunflower card to plant a seed!' },
+  12: { cardId: 'clover',    msgKo: '새싹 카드로 점수를 높여보세요!',             msgEn: 'Use the Sprout card to boost your score!' },
+};
 import {
   FailureState,
   loadFailureState,
@@ -83,7 +93,7 @@ export default function Game({
   onStartTrial,
   onBuyPremium,
 }: GameProps) {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   /* ── 구독 상태 ───────────────────────────────────────── */
   const sub         = subscriptionState ?? { isPremium: false, trialUsed: false, trialActive: false, trialExpiry: null };
   const premiumActive = isPremiumActive(sub);
@@ -107,11 +117,16 @@ export default function Game({
     turnsLeft,
     maxTurns,
     moveCount,
+    lostByTurns,
     handleMove,
     resetGame,
     playOn,
     undoMove,
+    undoMultiple,
+    extendTurns,
+    setThornImmunity,
     removeTileById,
+    removeObstacleTile,
     spawnTileAt,
     boardClean,
     setScoreMultiplier,
@@ -139,7 +154,7 @@ export default function Game({
   /* 게임 화면이 활성화될 때 런타임이 없으면 로드아웃 모달 표시 */
   useEffect(() => {
     if (isActive && runtime.items[0] === null) {
-      setShowLoadout(true);
+      openLoadoutWithGuide();
     }
   }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -154,7 +169,19 @@ export default function Game({
   };
 
   /* 카드 해금 팝업 */
-  const [showCardUnlock, setShowCardUnlock] = useState(false);
+  const [showCardUnlock,      setShowCardUnlock]      = useState(false);
+  const [cardUnlockGroup,     setCardUnlockGroup]     = useState<CardUnlockGroup>('starter');
+
+  /* 카드 가이드 튜토리얼 스테이지 */
+  const [cardGuideStage, setCardGuideStage] = useState<number | null>(null);
+
+  /* 카드 튜토리얼 넛지: "idle" | "card"(카드 클릭 유도) | "board"(타일/칸 선택 유도) */
+  type TutorialNudge = "idle" | "card" | "board";
+  const [tutorialNudge,    setTutorialNudge]    = useState<TutorialNudge>("idle");
+  const nudgeTriggeredRef = useRef(false);   // 같은 스테이지에서 재트리거 방지
+
+  /* 구독 해금 감지용 ref */
+  const prevPremiumRef = useRef(premiumActive);
 
   /* ── 실패 추적 & 수익화 팝업 상태 ───────────────────── */
   const [failureState,       setFailureState]       = useState<FailureState>(loadFailureState);
@@ -181,6 +208,17 @@ export default function Game({
     setScoreMultiplier(runtime.cloverTurnsLeft > 0 ? 1.2 : 1.0);
   }, [runtime.cloverTurnsLeft]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── 구독 해금 감지: premiumActive가 처음 true가 됐을 때 팝업 ── */
+  useEffect(() => {
+    const PREMIUM_SHOWN_KEY = 'plant2048_premium_unlock_shown';
+    if (premiumActive && !prevPremiumRef.current && !localStorage.getItem(PREMIUM_SHOWN_KEY)) {
+      localStorage.setItem(PREMIUM_SHOWN_KEY, '1');
+      setCardUnlockGroup('premium');
+      setShowCardUnlock(true);
+    }
+    prevPremiumRef.current = premiumActive;
+  }, [premiumActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── 상점 상태 ───────────────────────────────────────── */
   const { inventory, addToInventory, useFromInventory } = useShop();
   const [showShop, setShowShop] = useState(false);
@@ -191,6 +229,7 @@ export default function Game({
 
   /* ── 게임 종료 모달 상태 ─────────────────────────────── */
   const gameEndTriggeredRef = useRef(false);
+  const revivedRef          = useRef(false);   // 부활 1회 제한
   const [showEndModal, setShowEndModal] = useState(false);
   const [endIsWin,  setEndIsWin]  = useState(false);
   const [endScore,  setEndScore]  = useState(0);
@@ -232,9 +271,49 @@ export default function Game({
   }, [hasLost, showWinModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tilesList    = Object.values(activeTiles);
-  const numberTiles  = tilesList.filter(
-    (t) => t.tileType !== "soil" && t.tileType !== "thorn",
-  );
+  const numberTiles  = tilesList.filter((t) => !isObstacle(t));
+
+  /* ── 카드 튜토리얼 넛지 트리거 ───────────────────────── *
+   * 조건 달성 시 카드 클릭 유도 말풍선 표시
+   *   stage 10 (cactus)    : 타일 10개 이상 → 카드 버튼 펄스
+   *   stage 11 (sunflower) : 타일 11개 이상
+   *   stage 12 (clover)    : 3턴 이상 진행
+   * ──────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!cardGuideStage || nudgeTriggeredRef.current || tutorialNudge !== "idle") return;
+    let fire = false;
+    if      (cardGuideStage === 10) fire = tilesList.length >= 10;
+    else if (cardGuideStage === 11) fire = tilesList.length >= 11;
+    else if (cardGuideStage === 12) fire = moveCount >= 3;
+    if (fire) {
+      nudgeTriggeredRef.current = true;
+      setTutorialNudge("card");
+    }
+  }, [tilesList.length, moveCount, cardGuideStage, tutorialNudge]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── consumeCard 래퍼: 카드 가이드 + 넛지 리셋 포함 ─── */
+  const handleConsumeCard = () => {
+    consumeCard();
+    setCardGuideStage(null);
+    setTutorialNudge("idle");
+  };
+
+  /* ── 로드아웃 모달 열기 + 카드 가이드 자동 선택 ────────── */
+  const openLoadoutWithGuide = () => {
+    /* 항상 이전 가이드 상태 초기화 */
+    setCardGuideStage(null);
+    setTutorialNudge("idle");
+    nudgeTriggeredRef.current = false;
+
+    if (cardsUnlocked) {
+      const currentStage = player.clearedLevel + 1;
+      if (currentStage in GUIDE_CARD) {
+        setSelectedCard(GUIDE_CARD[currentStage].cardId);
+        setCardGuideStage(currentStage);
+      }
+    }
+    setShowLoadout(true);
+  };
 
   /* ── 카드 버튼 클릭 ──────────────────────────────────── */
   const handleCardClick = () => {
@@ -251,44 +330,118 @@ export default function Game({
 
     const cardDef = CARDS.find((c) => c.id === card.id)!;
 
-    /* 황금 해바라기: 값 4짜리 타일 생성 */
-    const spawnValue = card.id === "golden_sunflower" ? 4 : 2;
-
     switch (cardDef.targetMode) {
       case "tile":
         toggleCardActive();
+        if (tutorialNudge === "card") setTutorialNudge("board");
         setTileSelectCb(() => (tileId: string) => {
-          removeTileById(tileId);
-          consumeCard();
+          if (card.id === "life_tree") {
+            /* 생명의 나무: 선택한 타일 값 2배 업그레이드 */
+            const tile = Object.values(activeTiles).find((t) => t.id === tileId);
+            if (tile) {
+              removeTileById(tileId);
+              spawnTileAt(tile.x, tile.y, tile.value * 2);
+            }
+          } else {
+            /* 선인장 / 프리미엄 제거: 타일 제거 */
+            removeTileById(tileId);
+          }
+          handleConsumeCard();
           updateMission("use_item");
           updateWeeklyMission("use_item_5");
         });
         break;
       case "empty":
         toggleCardActive();
+        if (tutorialNudge === "card") setTutorialNudge("board");
         setEmptyCellSelectCb(() => (x: number, y: number) => {
-          spawnTileAt(x, y, spawnValue);
-          consumeCard();
+          spawnTileAt(x, y, 2);
+          handleConsumeCard();
           updateMission("use_item");
           updateWeeklyMission("use_item_5");
         });
         break;
-      case "instant":
-        if (card.id === "life_tree") {
-          /* 생명의 나무: 가장 낮은 일반 타일 2개 제거 */
-          const sorted = Object.values(activeTiles)
-            .filter((t) => t.tileType !== "soil" && t.tileType !== "thorn")
-            .sort((a, b) => a.value - b.value)
-            .slice(0, 2);
-          sorted.forEach((t) => removeTileById(t.id));
-          consumeCard();
-        } else {
-          activateClover(3);
-          setScoreMultiplier(1.2);
+      case "instant": {
+        const boardSize = stageConfig?.boardSize ?? 4;
+        const occupied = new Set(
+          Object.values(activeTiles).map((t) => `${t.x},${t.y}`)
+        );
+        const emptyCells: { x: number; y: number }[] = [];
+        for (let x = 0; x < boardSize; x++) {
+          for (let y = 0; y < boardSize; y++) {
+            if (!occupied.has(`${x},${y}`)) emptyCells.push({ x, y });
+          }
         }
+
+        const shuffle = <T,>(arr: T[]): T[] => {
+          const a = [...arr];
+          for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+          }
+          return a;
+        };
+
+        const sortedTiles = Object.values(activeTiles)
+          .filter((t) => !isObstacle(t))
+          .sort((a, b) => a.value - b.value);
+
+        switch (card.id) {
+          case "golden_sunflower": {
+            /* 황금 해바라기: 빈 칸 2곳에 4 타일 동시 배치 */
+            shuffle(emptyCells).slice(0, 2).forEach(({ x, y }) => spawnTileAt(x, y, 4));
+            break;
+          }
+          case "lotus": {
+            sortedTiles.slice(0, 3).forEach((t) => removeTileById(t.id));
+            break;
+          }
+          case "bamboo": {
+            // 가시 번짐 5턴 면역 설정
+            setThornImmunity(5);
+            break;
+          }
+          case "dandelion": {
+            shuffle(emptyCells).slice(0, 2).forEach(({ x, y }) => spawnTileAt(x, y, 2));
+            break;
+          }
+          case "cherry": {
+            shuffle(emptyCells).slice(0, 3).forEach(({ x, y }) => spawnTileAt(x, y, 2));
+            break;
+          }
+          case "mushroom": {
+            const byValue = new Map<number, typeof sortedTiles>();
+            for (const t of sortedTiles) {
+              if (!byValue.has(t.value)) byValue.set(t.value, []);
+              byValue.get(t.value)!.push(t);
+            }
+            const pair = [...byValue.entries()]
+              .filter(([, tiles]) => tiles.length >= 2)
+              .sort(([a], [b]) => a - b)[0];
+            if (pair) {
+              const [val, tiles] = pair;
+              removeTileById(tiles[0].id);
+              removeTileById(tiles[1].id);
+              spawnTileAt(tiles[0].x, tiles[0].y, val * 2);
+            }
+            break;
+          }
+          case "rose": {
+            activateClover(5);
+            setScoreMultiplier(1.3);
+            break;
+          }
+          default: {
+            activateClover(3);
+            setScoreMultiplier(1.2);
+            break;
+          }
+        }
+        handleConsumeCard();
         updateMission("use_item");
         updateWeeklyMission("use_item_5");
         break;
+      }
     }
   };
 
@@ -323,13 +476,33 @@ export default function Game({
     }
   };
 
+  /* ── 부활 (패배 시 광고 1회, 5턴 되돌리기) ──────────── */
+  const handleRevive = useCallback(() => {
+    if (revivedRef.current) return;
+    revivedRef.current = true;
+    setShowEndModal(false);
+    gameEndTriggeredRef.current = false;
+    undoMultiple(5);   // 5턴 전 보드 복원 → hasLost 자동 리셋
+  }, [undoMultiple]);
+
+  /* ── 턴 연장 (턴 소진 패배 시 광고 1회, +30턴) ───────── */
+  const handleExtendTurns = useCallback(() => {
+    if (revivedRef.current) return;
+    revivedRef.current = true;
+    setShowEndModal(false);
+    gameEndTriggeredRef.current = false;
+    extendTurns(30);
+  }, [extendTurns]);
+
   /* ── 게임 종료 모달 확인 ─────────────────────────────── */
   const handleEndConfirm = (
     earnedCoins: number,
     action:      "reset" | "home"
   ) => {
-    /* 스테이지 9 클리어 = 카드 해금 이벤트 감지 (onClearLevel 호출 전) */
-    const justUnlockedCards = endIsWin && player.clearedLevel === 8;
+    /* 스테이지 클리어 = 카드 해금 이벤트 감지 (onClearLevel 호출 전) */
+    const justUnlockedStarter = endIsWin && player.clearedLevel === 8;
+    const justUnlockedLv100   = endIsWin && player.clearedLevel === 98;
+    const justUnlockedLv400   = endIsWin && player.clearedLevel === 398;
 
     /* 스테이지 클리어 판정 */
     if (stageConfig) {
@@ -384,15 +557,20 @@ export default function Game({
     /* ── 광고: 5판마다 1회 (첫 3판 제외, 구독자 스킵) ── */
     const adCount = incrementGameCount();
     if (shouldShowInterstitialAd(adCount, premiumActive)) {
-      markInterstitialAdShown();
-      setShowAdOverlay(true);
-      setTimeout(() => setShowAdOverlay(false), 2000);
+      void markInterstitialAdShown(); // 네이티브: 실제 AdMob 인터스티셜 표시
+      if (!isNativePlatform()) {      // 웹: 가짜 오버레이
+        setShowAdOverlay(true);
+        setTimeout(() => setShowAdOverlay(false), 2000);
+      }
     }
 
     /* 실패 광고 (조건 충족 시, 구독자 스킵) */
     if (!endIsWin && shouldShowFailureAd(newFailState.consecutiveFails, currentStageId, premiumActive)) {
-      setShowAdOverlay(true);
-      setTimeout(() => setShowAdOverlay(false), 2000);
+      void markInterstitialAdShown(); // 네이티브: 실제 AdMob 인터스티셜 표시
+      if (!isNativePlatform()) {      // 웹: 가짜 오버레이
+        setShowAdOverlay(true);
+        setTimeout(() => setShowAdOverlay(false), 2000);
+      }
     }
 
     setShowEndModal(false);
@@ -402,17 +580,27 @@ export default function Game({
 
     setTileSelectCb(null);
     setEmptyCellSelectCb(null);
+    setSelectingObstacle(false);
 
-    if (justUnlockedCards) {
+    if (justUnlockedStarter) {
       resetGame();
+      setCardUnlockGroup('starter');
+      setShowCardUnlock(true);
+    } else if (justUnlockedLv100) {
+      resetGame();
+      setCardUnlockGroup('lv100');
+      setShowCardUnlock(true);
+    } else if (justUnlockedLv400) {
+      resetGame();
+      setCardUnlockGroup('lv400');
       setShowCardUnlock(true);
     } else if (action === "reset") {
       resetSelection();
       resetGame();
-      setShowLoadout(true);
+      openLoadoutWithGuide();
     } else {
       resetGame();
-      setShowLoadout(true);
+      openLoadoutWithGuide();
       onHome();
     }
   };
@@ -439,8 +627,9 @@ export default function Game({
     mission128ReportedRef.current  = false;
     setTileSelectCb(null);
     setEmptyCellSelectCb(null);
-    buildRuntime(); // 같은 로드아웃으로 재시작
+    resetSelection();
     resetGame();
+    openLoadoutWithGuide();
   };
 
   const confirmHome = () => {
@@ -451,7 +640,7 @@ export default function Game({
     setTileSelectCb(null);
     setEmptyCellSelectCb(null);
     resetSelection();
-    setShowLoadout(true); // 홈 → 다시 로드아웃 선택
+    openLoadoutWithGuide(); // 홈 → 다시 로드아웃 선택
     resetGame();
     onHome();
   };
@@ -459,6 +648,9 @@ export default function Game({
   /* ── 타일 선택 제거 상태 ─────────────────────────────── */
   const [selectingTile, setSelectingTile]           = useState(false);
   const [pendingRemoveTile, setPendingRemoveTile]   = useState<{ id: string; value: number } | null>(null);
+
+  /* ── 장애물 선택 제거 상태 (remove_obstacle 아이템) ──── */
+  const [selectingObstacle, setSelectingObstacle]   = useState(false);
 
   /* ── 인벤토리바 구매 확인 팝업 상태 (portal 렌더용) ───── */
   const [pendingBuy, setPendingBuy] = useState<ShopItem | null>(null);
@@ -508,11 +700,23 @@ export default function Game({
 
   /* ── 보드 이벤트 라우터 ───────────────────────────────── */
 
-  /** 타일 클릭: 로드아웃 콜백 우선, 없으면 기존 상점 remove_tile 흐름 */
+  /** 타일 클릭: 로드아웃 콜백 우선, 없으면 기존 상점 remove_tile/remove_obstacle 흐름 */
   const handleBoardTileClick = (tileId: string) => {
     if (tileSelectCb) {
       tileSelectCb(tileId);
       setTileSelectCb(null);
+    } else if (selectingObstacle) {
+      /* 장애물 선택 모드: 클릭한 타일이 장애물이면 제거 */
+      const tile = (activeTiles as Record<string, { id: string; tileType?: string }>)[tileId];
+      if (tile && isObstacle(tile as Parameters<typeof isObstacle>[0])) {
+        const consumed = useFromInventory("remove_obstacle");
+        if (consumed) {
+          removeObstacleTile(tileId);
+          updateMission("use_item");
+          updateWeeklyMission("use_item_5");
+        }
+        setSelectingObstacle(false);
+      }
     } else if (selectingTile) {
       handleTileSelectClick(tileId);
     }
@@ -526,7 +730,7 @@ export default function Game({
     }
   };
 
-  const boardTileSelectMode  = tileSelectCb !== null || selectingTile;
+  const boardTileSelectMode  = tileSelectCb !== null || selectingTile || selectingObstacle;
   const boardEmptyCellMode   = emptyCellSelectCb !== null;
 
   /* ── 상점: 아이템 사용 처리 ──────────────────────────── */
@@ -535,10 +739,19 @@ export default function Game({
     /* board_clean: 5개 이상일 때만 사용 가능 */
     if (itemId === "board_clean" && numberTiles.length <= 4) return;
     if (itemId === "remove_tile" && numberTiles.length === 0) return;
+    /* remove_obstacle: 장애물이 있을 때만 사용 가능 */
+    if (itemId === "remove_obstacle" && tilesList.filter((t) => isObstacle(t)).length === 0) return;
 
     /* remove_tile: 아이템 소비 없이 선택 모드 진입 */
     if (itemId === "remove_tile") {
       setSelectingTile(true);
+      setShowShop(false);
+      return;
+    }
+
+    /* remove_obstacle: 아이템 소비 없이 장애물 선택 모드 진입 */
+    if (itemId === "remove_obstacle") {
+      setSelectingObstacle(true);
       setShowShop(false);
       return;
     }
@@ -566,12 +779,7 @@ export default function Game({
       <div className="relative flex-1 w-full flex flex-col items-center overflow-hidden">
 
 <div className="relative z-10 w-full flex flex-col flex-1 items-center">
-          {/* ── 상단 AD 배너 ────────────────────────────────── */}
-          <div className="w-full h-10 bg-white/55 backdrop-blur-sm flex items-center justify-center text-[11px] font-medium text-foreground/25 flex-shrink-0">
-            AD
-          </div>
-
-          <div className="w-full max-w-[500px] flex flex-col flex-1 px-4 pb-14">
+          <div className="w-full max-w-[500px] flex flex-col flex-1 px-4 pb-10">
 
             <Header
               score={score}
@@ -594,9 +802,18 @@ export default function Game({
             )}
 
             <main className="w-full flex-1 flex flex-col justify-center relative">
+              {cardGuideStage !== null && cardsUnlocked && tutorialNudge !== "idle" && (
+                <CardTutorialOverlay
+                  stage={cardGuideStage}
+                  nudge={tutorialNudge}
+                  lang={lang}
+                />
+              )}
+
               <Board
                 tiles={tilesList}
                 graveyard={graveyard}
+                gridSize={stageConfig?.boardSize ?? 4}
                 onSwipe={(dir) => {
                   /* 선택 모드 중 스와이프 → 선택 모드 취소 */
                   if (boardTileSelectMode) {
@@ -626,6 +843,7 @@ export default function Game({
               hasSeedTiles={numberTiles.length > 4}
               hasTiles={numberTiles.length > 0}
               cardsUnlocked={cardsUnlocked}
+              guidePulse={tutorialNudge === "card"}
               onCardClick={handleCardClick}
               onItemClick={handleLoadoutItemClick}
             />
@@ -645,6 +863,7 @@ export default function Game({
           stageLevel={player.clearedLevel + 1}
           stageConfig={stageConfig}
           clearedLevel={player.clearedLevel}
+          tutorialCardId={cardGuideStage ? GUIDE_CARD[cardGuideStage]?.cardId : undefined}
           onSelectCard={setSelectedCard}
           onToggleItem={toggleItem}
           onStart={handleLoadoutStart}
@@ -673,16 +892,18 @@ export default function Game({
         player={playerSnapshot}
         season={season}
         isPremiumActive={premiumActive}
+        onRevive={!endIsWin && !lostByTurns && !revivedRef.current ? handleRevive : undefined}
+        onExtendTurns={!endIsWin && lostByTurns && !revivedRef.current ? handleExtendTurns : undefined}
         onConfirm={handleEndConfirm}
       />
 
-      {/* ── 카드 해금 팝업 (스테이지 9 클리어 시) ─────────── */}
+      {/* ── 카드 해금 팝업 ─────────────────────────────────── */}
       {showCardUnlock && createPortal(
         <CardUnlockOverlay
+          group={cardUnlockGroup}
           onDone={() => {
             setShowCardUnlock(false);
-            setShowLoadout(true);
-            onHome();
+            openLoadoutWithGuide();
           }}
         />,
         document.body,
@@ -696,7 +917,7 @@ export default function Game({
           title={t("modal.winTitle")}
           description={t("modal.winDesc")}
           primaryAction={{ label: t("modal.continuePlay"), onClick: playOn }}
-          secondaryAction={{ label: t("modal.newGame"), onClick: resetGame }}
+          secondaryAction={{ label: t("modal.newGame"), onClick: () => { resetSelection(); resetGame(); openLoadoutWithGuide(); } }}
         />
       )}
 
@@ -892,14 +1113,17 @@ interface ActionBarProps {
   hasSeedTiles:  boolean;
   hasTiles:      boolean;
   cardsUnlocked: boolean;
+  guidePulse?:   boolean;   // 카드 버튼 펄스 (튜토리얼 넛지)
   onCardClick:   () => void;
   onItemClick:   (idx: 0 | 1) => void;
 }
 
 function ActionBar({
   runtime, canUndo, hasSeedTiles, hasTiles, cardsUnlocked,
+  guidePulse = false,
   onCardClick, onItemClick,
 }: ActionBarProps) {
+  const { t } = useTranslation();
   const { card, items, cloverTurnsLeft } = runtime;
 
   /* 카드 버튼 상태 */
@@ -917,22 +1141,24 @@ function ActionBar({
         {/* ── 슬롯 1: 로드아웃 카드 (해금 후에만 표시) ──── */}
         {cardsUnlocked && (
           <>
-            <div className="flex items-center flex-1">
+            <div className="flex items-center flex-1 relative">
               <button
                 onClick={onCardClick}
                 disabled={cardExhausted}
-                title={cardDef ? `${cardDef.name}: ${cardDef.description}` : undefined}
+                title={cardDef ? `${t(`card.${cardDef.id}`)}: ${t(`card.desc.${cardDef.id}`)}` : undefined}
                 className={[
                   "flex flex-col items-center gap-0.5 flex-1 py-2 px-1 rounded-lg transition-all active:scale-95",
                   cardExhausted ? "opacity-30 cursor-not-allowed"
                   : card?.isActive
                     ? "opacity-100 bg-primary/10 ring-1 ring-primary/40"
+                  : guidePulse
+                    ? "opacity-100 ring-2 ring-green-400 bg-green-50 animate-pulse"
                     : "opacity-100 hover:opacity-80",
                 ].join(" ")}
               >
                 <span className="text-2xl leading-none">{cardDef?.emoji ?? "❓"}</span>
                 <span className="text-[11px] font-semibold text-foreground/70 leading-tight">
-                  {cardDef?.name ?? "—"}
+                  {cardDef ? t(`card.${cardDef.id}`) : "—"}
                 </span>
                 {card?.isActive && (
                   <span className="text-[10px] font-bold leading-tight text-primary animate-pulse">
@@ -940,6 +1166,17 @@ function ActionBar({
                   </span>
                 )}
               </button>
+              {/* 튜토리얼 넛지 화살표 */}
+              {guidePulse && !cardExhausted && (
+                <div style={{
+                  position: "absolute", top: -28, left: "50%",
+                  transform: "translateX(-50%)",
+                  fontSize: 20, animation: "bounce 1s ease-in-out infinite",
+                  pointerEvents: "none",
+                }}>
+                  👆
+                </div>
+              )}
             </div>
             <div className="w-px bg-foreground/15 shrink-0 self-stretch" />
           </>
@@ -1019,7 +1256,7 @@ function LoadoutItemSlot({
     remove: t("game.removeBlocked"),
   };
 
-  const itemName = t(`item.${item.id}.name`) !== `item.${item.id}.name` ? t(`item.${item.id}.name`) : itemDef.name;
+  const itemName = t(`item.${item.id}.name`);
 
   return (
     <button
@@ -1069,34 +1306,60 @@ function GoalBanner({ score, stageGoal, turnsLeft, maxTurns, goalTile }: GoalBan
 
   /* ── 스테이지 모드: 타일 목표 + 턴 카운터 ─────────────── */
   if (goalTile !== undefined && turnsLeft !== undefined && maxTurns !== undefined) {
-    const turnPct    = maxTurns > 0 ? Math.min(100, Math.round((turnsLeft / maxTurns) * 100)) : 0;
-    const turnsUrgent = turnsLeft <= 3;
+    const turnPct     = maxTurns > 0 ? Math.min(100, Math.round((turnsLeft / maxTurns) * 100)) : 0;
+    const turnsUrgent = turnsLeft <= Math.ceil(maxTurns * 0.1); // 남은 턴 10% 이하면 위험
 
     return (
-      <div className="mb-2 px-3 py-2 rounded-xl flex items-center gap-2 bg-white/60 border border-foreground/8 transition-all">
-        <span className="text-base">🎯</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-foreground/70">
-            {t("game.goalTile", { tile: goalTile })}
-          </p>
-          <div className="mt-1 h-1 bg-foreground/10 rounded-full overflow-hidden">
-            <div
-              className={[
-                "h-full rounded-full transition-all duration-300",
-                turnsUrgent ? "bg-red-400" : "bg-primary",
-              ].join(" ")}
-              style={{ width: `${turnPct}%` }}
-            />
+      <div
+        className="mb-3 rounded-2xl overflow-hidden"
+        style={{
+          background:  turnsUrgent
+            ? "linear-gradient(135deg, rgba(254,226,226,0.85), rgba(254,202,202,0.75))"
+            : "linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.55))",
+          border:      turnsUrgent ? "1.5px solid rgba(252,165,165,0.6)" : "1.5px solid rgba(0,0,0,0.06)",
+          backdropFilter: "blur(8px)",
+          transition:  "background 0.4s, border 0.4s",
+        }}
+      >
+        {/* ── 상단: 목표 설명 + 남은 턴 */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <div>
+            <p className="text-[10px] font-semibold leading-none mb-0.5"
+              style={{ color: turnsUrgent ? "rgba(185,28,28,0.6)" : "rgba(0,0,0,0.35)" }}>
+              {t("game.goal")}
+            </p>
+            <p className="text-sm font-black leading-tight"
+              style={{ color: turnsUrgent ? "#b91c1c" : "rgba(0,0,0,0.75)" }}>
+              {t("game.goalTile", { tile: goalTile })}
+            </p>
+          </div>
+          <div className="text-right">
+            <p
+              className="text-2xl font-black leading-none tabular-nums"
+              style={{ color: turnsUrgent ? "#ef4444" : "rgba(0,0,0,0.75)" }}
+            >
+              {turnsLeft.toLocaleString()}
+            </p>
+            <p className="text-[10px] font-medium leading-none mt-0.5"
+              style={{ color: turnsUrgent ? "rgba(185,28,28,0.55)" : "rgba(0,0,0,0.35)" }}>
+              {t("game.turnsLeft")}
+            </p>
           </div>
         </div>
-        <div className="flex-shrink-0 text-right ml-1">
-          <p className={[
-            "text-sm font-black leading-tight",
-            turnsUrgent ? "text-red-500" : "text-foreground/70",
-          ].join(" ")}>
-            {turnsLeft}
-          </p>
-          <p className="text-[10px] text-foreground/35 leading-tight">{t("game.turnsLeft")}</p>
+
+        {/* ── 하단: 진행 바 */}
+        <div className="px-4 pb-3">
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.08)" }}>
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width:      `${turnPct}%`,
+                background: turnsUrgent
+                  ? "linear-gradient(90deg, #f87171, #ef4444)"
+                  : "linear-gradient(90deg, #6ee7b7, #10b981)",
+              }}
+            />
+          </div>
         </div>
       </div>
     );
@@ -1107,90 +1370,128 @@ function GoalBanner({ score, stageGoal, turnsLeft, maxTurns, goalTile }: GoalBan
   const pct      = Math.min(100, Math.round((score / stageGoal) * 100));
   return (
     <div
-      className={[
-        "mb-2 px-3 py-2 rounded-xl flex items-center gap-2 transition-all",
-        achieved
-          ? "bg-emerald-50 border border-emerald-200"
-          : "bg-white/60 border border-foreground/8",
-      ].join(" ")}
+      className="mb-3 rounded-2xl overflow-hidden"
+      style={{
+        background: achieved
+          ? "linear-gradient(135deg, rgba(209,250,229,0.85), rgba(167,243,208,0.7))"
+          : "linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.55))",
+        border: achieved ? "1.5px solid rgba(52,211,153,0.5)" : "1.5px solid rgba(0,0,0,0.06)",
+        backdropFilter: "blur(8px)",
+      }}
     >
-      <span className="text-base">{achieved ? "✅" : "🎯"}</span>
-      <div className="flex-1 min-w-0">
-        {achieved ? (
-          <p className="text-xs font-bold text-emerald-600">
-            {t("game.goalExceeded", { goal: stageGoal.toLocaleString() })}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <div>
+          <p className="text-[10px] font-semibold leading-none mb-0.5"
+            style={{ color: achieved ? "rgba(6,95,70,0.6)" : "rgba(0,0,0,0.35)" }}>
+            {t("game.goal")}
           </p>
-        ) : (
-          <>
-            <p className="text-xs font-bold text-foreground/70">
-              {score === 0
-                ? t("game.goalPrompt", { goal: stageGoal.toLocaleString() })
-                : t("game.goalProgress", { score: score.toLocaleString(), goal: stageGoal.toLocaleString() })}
-            </p>
-            <div className="mt-1 h-1 bg-foreground/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-all duration-300"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </>
-        )}
+          <p className="text-sm font-black leading-tight"
+            style={{ color: achieved ? "#065f46" : "rgba(0,0,0,0.75)" }}>
+            {achieved
+              ? t("game.goalExceeded", { goal: stageGoal.toLocaleString() })
+              : t("game.goalPrompt", { goal: stageGoal.toLocaleString() })}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-2xl font-black leading-none tabular-nums"
+            style={{ color: achieved ? "#059669" : "rgba(0,0,0,0.75)" }}>
+            {pct}%
+          </p>
+          <p className="text-[10px] font-medium leading-none mt-0.5"
+            style={{ color: achieved ? "rgba(6,95,70,0.55)" : "rgba(0,0,0,0.35)" }}>
+            {t("game.progress") ?? "진행"}
+          </p>
+        </div>
       </div>
+      {!achieved && (
+        <div className="px-4 pb-3">
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.08)" }}>
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width:      `${pct}%`,
+                background: "linear-gradient(90deg, #fbbf24, #f59e0b)",
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 /* ============================================================
- * CardUnlockOverlay
- * 스테이지 9 클리어 시 시작 카드 3종 해금 애니메이션 팝업
+ * CardTutorialOverlay
+ * 스테이지 10·11·12 인터랙티브 카드 튜토리얼 말풍선
+ * - nudge="card"  : 카드 버튼 클릭 유도 (아래쪽 화살표, 보드 하단)
+ * - nudge="board" : 타일/빈칸 선택 유도 (위쪽 배너, 보드 상단)
  * ============================================================ */
-function CardUnlockOverlay({ onDone }: { onDone: () => void }) {
-  const { t } = useTranslation();
-  const [visible, setVisible] = useState([false, false, false]);
-  const starterCards = CARD_COLLECTION.slice(0, 3);
-  const doneCalled = useRef(false);
+const GUIDE_BOARD_MSG: Record<number, { ko: string; en: string }> = {
+  10: { ko: '제거할 타일을 탭하세요!',   en: 'Tap a tile to remove it!' },
+  11: { ko: '씨앗을 심을 빈 칸을 탭하세요!', en: 'Tap an empty cell to plant a seed!' },
+  12: { ko: '',                          en: '' },   // 클로버는 즉시 발동, board 단계 없음
+};
 
-  const done = useCallback(() => {
-    if (!doneCalled.current) { doneCalled.current = true; onDone(); }
-  }, [onDone]);
+function CardTutorialOverlay({
+  stage, nudge, lang,
+}: { stage: number; nudge: "card" | "board"; lang: string }) {
+  const guide = GUIDE_CARD[stage];
+  if (!guide) return null;
 
-  useEffect(() => {
-    const t0 = setTimeout(() => setVisible([true,  false, false]), 300);
-    const t1 = setTimeout(() => setVisible([true,  true,  false]), 800);
-    const t2 = setTimeout(() => setVisible([true,  true,  true]),  1300);
-    const t3 = setTimeout(() => done(), 3000);
-    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/65 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl px-6 py-8 w-full max-w-xs mx-4 flex flex-col items-center gap-5 shadow-2xl animate-in zoom-in-95 duration-300">
-        <div className="text-4xl">🎉</div>
-        <div className="text-center">
-          <h2 className="text-xl font-display font-bold text-foreground">{t("cardCollection.starterCards")} {t("game.stageClear")}</h2>
-          <p className="text-sm text-foreground/50 mt-1">{t("cardCollection.starterBadgeLocked")}</p>
+  if (nudge === "card") {
+    const msg = lang === 'ko' ? guide.msgKo : guide.msgEn;
+    return (
+      <div style={{
+        position: 'absolute', bottom: 8, left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 50, pointerEvents: 'none',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
+      }}>
+        {/* 말풍선 */}
+        <div style={{
+          background: 'rgba(255,251,235,0.97)',
+          border: '2px solid #fbbf24',
+          borderRadius: 14,
+          padding: '8px 18px',
+          fontSize: 13, fontWeight: 800,
+          color: '#92400e',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+          whiteSpace: 'nowrap',
+          animation: 'tutorialBounce 1.2s ease-in-out infinite',
+        }}>
+          ✨ {msg}
         </div>
-
-        <div className="flex gap-3 w-full">
-          {starterCards.map((card, i) => (
-            <div
-              key={card.collectionId}
-              className="flex-1 flex flex-col items-center gap-1.5 rounded-2xl py-4 border-2 transition-all duration-500"
-              style={{
-                opacity:     visible[i] ? 1 : 0,
-                transform:   visible[i] ? "scale(1) translateY(0)" : "scale(0.7) translateY(12px)",
-                borderColor: visible[i] ? "#6ee7b7" : "transparent",
-                background:  visible[i] ? "#d1fae5" : "transparent",
-              }}
-            >
-              <span className="text-3xl leading-none">{card.emoji}</span>
-              <span className="text-xs font-bold text-emerald-700 leading-tight">{card.name}</span>
-            </div>
-          ))}
-        </div>
-
-        <p className="text-xs text-foreground/40">...</p>
+        {/* 아래쪽 삼각형 화살표 */}
+        <div style={{
+          width: 0, height: 0,
+          borderLeft: '8px solid transparent',
+          borderRight: '8px solid transparent',
+          borderTop: '10px solid #fbbf24',
+          marginTop: -1,
+        }} />
       </div>
+    );
+  }
+
+  /* nudge === "board" */
+  const boardMsg = GUIDE_BOARD_MSG[stage];
+  if (!boardMsg?.ko) return null;
+  const msg = lang === 'ko' ? boardMsg.ko : boardMsg.en;
+  return (
+    <div style={{
+      position: 'absolute', top: 8, left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 50, pointerEvents: 'none',
+      background: 'rgba(240,253,244,0.97)',
+      border: '2px solid #86efac',
+      borderRadius: 14,
+      padding: '7px 18px',
+      fontSize: 13, fontWeight: 800,
+      color: '#166534',
+      boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
+      whiteSpace: 'nowrap',
+    }}>
+      🎯 {msg}
     </div>
   );
 }

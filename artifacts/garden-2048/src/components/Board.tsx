@@ -10,6 +10,7 @@
 import { useRef, useEffect } from "react";
 import { Tile } from "./Tile";
 import { TileData } from "@/utils/gameUtils";
+import { useTranslation } from "@/i18n";
 
 interface BoardProps {
   tiles: TileData[];
@@ -32,6 +33,7 @@ export function Board({
   selectMode = false, onTileClick,
   emptyCellSelectMode = false, onEmptyCellClick,
 }: BoardProps) {
+  const { t } = useTranslation();
   const boardRef = useRef<HTMLDivElement>(null);
 
   /* ── 터치 스와이프 처리 ─────────────────────────────── */
@@ -144,7 +146,7 @@ export function Board({
         {selectMode && (
           <div className="absolute inset-0 z-20 flex items-start justify-center pt-3 pointer-events-none">
             <div className="bg-black/65 text-white text-xs font-bold px-4 py-1.5 rounded-full animate-pulse">
-              제거할 타일을 선택하세요
+              {t("game.selectTileToRemove")}
             </div>
           </div>
         )}
@@ -153,7 +155,7 @@ export function Board({
         {emptyCellSelectMode && (
           <div className="absolute inset-0 z-20 flex items-start justify-center pt-3 pointer-events-none">
             <div className="bg-black/65 text-white text-xs font-bold px-4 py-1.5 rounded-full animate-pulse">
-              🌻 씨앗을 심을 빈 칸을 선택하세요
+              {t("game.selectEmptyCell")}
             </div>
           </div>
         )}

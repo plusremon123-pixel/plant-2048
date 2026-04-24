@@ -9,13 +9,15 @@
  * 계절 CSS 변수를 clearedLevel 변경 시마다 전역 주입한다.
  * ============================================================ */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAppState } from "@/hooks/useAppState";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useMissions } from "@/hooks/useMissions";
 import { useSettings } from "@/hooks/useSettings";
 import { useSubscription } from "@/hooks/useSubscription";
 import { FrontScreen } from "@/components/FrontScreen";
+import { SplashScreen } from "@/components/SplashScreen";
+import { TutorialModal } from "@/components/TutorialModal";
 import Game from "@/pages/Game";
 import EndlessGame from "@/pages/EndlessGame";
 import { EndlessDifficultyModal } from "@/components/modals/EndlessDifficultyModal";
@@ -32,6 +34,9 @@ import {
 import { getSeason } from "@/utils/seasonData";
 import { applySeasonCssVars } from "@/utils/seasonTheme";
 import { initAdmob } from "@/utils/adProvider";
+import { PLAYER_STORAGE_KEY } from "@/utils/playerData";
+
+const TUTORIAL_KEY = "plant2048_tutorial_done";
 
 /* ── 초기 선물: 훅 실행 전 localStorage에 직접 반영 ─────── */
 giveInitialGiftIfNeeded();
@@ -40,13 +45,26 @@ giveInitialGiftIfNeeded();
 void initAdmob();
 
 export default function App() {
-  const { currentScreen, selectedThemeId, selectTheme, goToGame, goToEndlessSelect, goToEndless, goToFront } =
+  const { currentScreen, selectedThemeId, selectTheme, goToTutorial, goToGame, goToEndlessSelect, goToEndless, goToFront } =
     useAppState();
+
+  /* ── 스플래시 완료 핸들러 ───────────────────────── */
+  const handleSplashDone = () => {
+    if (!localStorage.getItem(TUTORIAL_KEY)) {
+      goToTutorial(); // 첫 실행 → 튜토리얼
+    } else {
+      goToFront();    // 복귀 플레이어 → 홈
+    }
+  };
+
+  /* ── 튜토리얼 완료 핸들러 ──────────────────────── */
+  const handleTutorialDone = () => {
+    goToFront();
+  };
 
   /* ── 무한 모드 상태 ─────────────────────────────────────── */
   const [endlessDifficulty, setEndlessDifficulty] = useState<EndlessDifficulty>("easy");
   const [endlessResumeSave, setEndlessResumeSave] = useState<EndlessSaveData | null>(null);
-  const pendingGoEndless = useRef(false);
 
   const { player, clearLevel, spendCoins, addCoins, reloadPlayer } = usePlayer();
   const {
@@ -59,6 +77,7 @@ export default function App() {
   /* ── 인벤토리 (홈 상점용 — Game.tsx의 useShop과 별개로 관리) */
   const [inventory, setInventory] = useState<Inventory>(loadInventory);
 
+  const atSplashOrTutorial = currentScreen === "splash" || currentScreen === "tutorial";
   const atFront         = currentScreen === "front";
   const atEndlessSelect = currentScreen === "endless-select";
   const atEndless       = currentScreen === "endless";
@@ -96,19 +115,15 @@ export default function App() {
   };
 
   /* 무한 모드 선택 화면 → 게임 시작
-     setState는 비동기이므로 상태 반영 후 useEffect에서 화면 전환 */
+     setState 는 같은 이벤트 핸들러 내에서 배치 처리되므로
+     goToEndless() 직전에 setState 를 불러도 다음 렌더에서 새 값이 반영된다.
+     (이전의 useEffect 기반 지연 전환은 동일 난이도 재선택 시 상태 변경이
+      감지되지 않아 두 번 클릭해야 전환되는 버그가 있었음) */
   const handleStartEndless = (difficulty: EndlessDifficulty, resume: boolean) => {
     setEndlessDifficulty(difficulty);
     setEndlessResumeSave(resume ? loadEndlessSave() : null);
-    pendingGoEndless.current = true;
+    goToEndless();
   };
-
-  useEffect(() => {
-    if (pendingGoEndless.current) {
-      pendingGoEndless.current = false;
-      goToEndless();
-    }
-  }, [endlessDifficulty, endlessResumeSave]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* 홈 화면으로 돌아올 때 플레이어/인벤토리 동기화 */
   const handleGoToFront = () => {
@@ -122,12 +137,21 @@ export default function App() {
       className="fixed inset-0"
       style={{ clipPath: "inset(0 0 0 0)" }}
     >
+      {/* ── 스플래시 / 튜토리얼 ──────────────────────── */}
+      {currentScreen === "splash" && (
+        <SplashScreen onDone={handleSplashDone} />
+      )}
+      {currentScreen === "tutorial" && (
+        <TutorialModal onDone={handleTutorialDone} />
+      )}
+
       {/* 슬라이딩 트랙 */}
       <div
         className="flex h-full transition-transform duration-[350ms] ease-in-out"
         style={{
           width:     "200vw",
           transform: atFront ? "translateX(0)" : "translateX(-50%)",
+          visibility: atSplashOrTutorial ? "hidden" : "visible",
         }}
       >
         {/* ── FrontScreen (왼쪽 패널) ────────────────── */}
@@ -152,8 +176,9 @@ export default function App() {
             settings={settings}
             onToggleSetting={toggleSetting}
             isPremiumActive={isPremiumActive}
+            subscriptionState={sub}
             onBuyPremium={buyPremium}
-            onStartEndless={goToEndlessSelect}
+            onStartEndless={handleStartEndless}
           />
         </div>
 
@@ -170,11 +195,12 @@ export default function App() {
               onHome={handleGoToFront}
               onEndlessHome={goToEndlessSelect}
               onEarnCoins={addCoins}
+              isPremiumActive={isPremiumActive}
             />
           ) : (
             <Game
               themeId={selectedThemeId}
-              isActive={!atFront && !atEndless && !atEndlessSelect}
+              isActive={!atFront && !atEndless && !atEndlessSelect && !atSplashOrTutorial}
               player={player}
               onClearLevel={clearLevel}
               onEarnCoins={addCoins}
@@ -199,6 +225,73 @@ export default function App() {
           onClose={handleGoToFront}
           season={getSeason(Math.max(1, player.clearedLevel + 1))}
         />
+      )}
+
+      {/* ── DEV 전용: 레벨 이동 버튼 (프로덕션에서는 렌더링 안 됨) ── */}
+      {import.meta.env.DEV && (
+        <div style={{
+          position: "fixed", bottom: 56, right: 8, zIndex: 9999,
+          display: "flex", flexDirection: "column", gap: 3,
+        }}>
+          {/* 카드 테스트 */}
+          {([
+            { label: "🌵 9",   lv: 8   },
+            { label: "🌻 99",  lv: 98  },
+            { label: "🍀 399", lv: 398 },
+          ] as const).map(({ label, lv }) => (
+            <button
+              key={lv}
+              onClick={() => {
+                localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify({ coins: 9999, clearedLevel: lv }));
+                window.location.reload();
+              }}
+              style={{
+                fontSize: 10, fontWeight: 700, padding: "3px 7px",
+                borderRadius: 8, border: "1.5px solid #94a3b8",
+                background: "#f1f5f9", color: "#475569", cursor: "pointer", lineHeight: 1.4,
+              }}
+            >{label}</button>
+          ))}
+
+          {/* 구분선 */}
+          <div style={{ height: 1, background: "#cbd5e1", margin: "2px 0" }} />
+
+          {/* 계절 전환 테스트 (전환 직전 스테이지) */}
+          {([
+            { label: "🌸 249",  lv: 248 },
+            { label: "☀️ 499", lv: 498 },
+            { label: "🍂 749", lv: 748 },
+          ] as const).map(({ label, lv }) => (
+            <button
+              key={lv}
+              onClick={() => {
+                localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify({ coins: 9999, clearedLevel: lv }));
+                window.location.reload();
+              }}
+              style={{
+                fontSize: 10, fontWeight: 700, padding: "3px 7px",
+                borderRadius: 8, border: "1.5px solid #a7f3d0",
+                background: "#ecfdf5", color: "#065f46", cursor: "pointer", lineHeight: 1.4,
+              }}
+            >{label}</button>
+          ))}
+
+          {/* 구분선 */}
+          <div style={{ height: 1, background: "#cbd5e1", margin: "2px 0" }} />
+
+          {/* 리셋 */}
+          <button
+            onClick={() => {
+              localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify({ coins: 0, clearedLevel: 0 }));
+              window.location.reload();
+            }}
+            style={{
+              fontSize: 10, fontWeight: 700, padding: "3px 7px",
+              borderRadius: 8, border: "1.5px solid #fca5a5",
+              background: "#fef2f2", color: "#dc2626", cursor: "pointer", lineHeight: 1.4,
+            }}
+          >Reset</button>
+        </div>
       )}
     </div>
   );

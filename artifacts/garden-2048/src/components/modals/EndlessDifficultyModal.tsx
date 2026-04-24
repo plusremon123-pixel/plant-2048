@@ -50,44 +50,44 @@ function calcBtnLayout(containerW: number, containerH: number): BtnLayout {
 
 /* ── 난이도 설정 ─────────────────────────────────────────── */
 const DIFF_CONFIG: Record<EndlessDifficulty, {
-  emoji:          string;
-  accent:         string;   // 포인트 컬러
-  bgUnsel:        string;   // 비선택 배경
-  bgSel:          string;   // 선택 배경
-  borderUnsel:    string;
-  borderSel:      string;
-  glow:           string;
-  checkColor:     string;
+  emoji:      string;
+  accent:     string;   // 포인트 컬러 (텍스트·아이콘·선택 테두리)
+  iconBg:     string;   // 아이콘 배경
+  selBorder:  string;   // 선택 테두리
+  selShadow:  string;   // 선택 그림자
+  tagBg:      string;   // 난이도 태그 배경
+  tagText:    string;   // 난이도 태그 텍스트
+  startBg:    string;   // 시작 버튼 배경
 }> = {
   easy: {
-    emoji:       "🌱",
-    accent:      "#6ee7a0",
-    bgUnsel:     "rgba(30,60,35,0.92)",
-    bgSel:       "rgba(20,70,38,0.97)",
-    borderUnsel: "rgba(80,160,90,0.6)",
-    borderSel:   "#6ee7a0",
-    glow:        "rgba(110,231,160,0.30)",
-    checkColor:  "#22c55e",
+    emoji:     "🌱",
+    accent:    "#16a34a",
+    iconBg:    "#dcfce7",
+    selBorder: "#22c55e",
+    selShadow: "0 0 0 3px rgba(34,197,94,0.25), 0 8px 24px rgba(34,197,94,0.2)",
+    tagBg:     "#dcfce7",
+    tagText:   "#15803d",
+    startBg:   "linear-gradient(135deg,#4ade80,#16a34a)",
   },
   normal: {
-    emoji:       "🌿",
-    accent:      "#fbbf24",
-    bgUnsel:     "rgba(55,42,10,0.92)",
-    bgSel:       "rgba(70,50,5,0.97)",
-    borderUnsel: "rgba(180,130,30,0.6)",
-    borderSel:   "#fbbf24",
-    glow:        "rgba(251,191,36,0.30)",
-    checkColor:  "#f59e0b",
+    emoji:     "🌻",
+    accent:    "#d97706",
+    iconBg:    "#fef9c3",
+    selBorder: "#f59e0b",
+    selShadow: "0 0 0 3px rgba(245,158,11,0.25), 0 8px 24px rgba(245,158,11,0.2)",
+    tagBg:     "#fef9c3",
+    tagText:   "#92400e",
+    startBg:   "linear-gradient(135deg,#fbbf24,#d97706)",
   },
   hard: {
-    emoji:       "🌵",
-    accent:      "#f87171",
-    bgUnsel:     "rgba(55,18,18,0.92)",
-    bgSel:       "rgba(75,18,18,0.97)",
-    borderUnsel: "rgba(180,60,60,0.6)",
-    borderSel:   "#f87171",
-    glow:        "rgba(248,113,113,0.30)",
-    checkColor:  "#ef4444",
+    emoji:     "🌵",
+    accent:    "#dc2626",
+    iconBg:    "#fee2e2",
+    selBorder: "#ef4444",
+    selShadow: "0 0 0 3px rgba(239,68,68,0.25), 0 8px 24px rgba(239,68,68,0.2)",
+    tagBg:     "#fee2e2",
+    tagText:   "#991b1b",
+    startBg:   "linear-gradient(135deg,#f87171,#dc2626)",
   },
 };
 
@@ -217,79 +217,66 @@ export function EndlessDifficultyModal({
           const delay = i * 0.08;
 
           return (
-            <div
+            <button
               key={diff}
-              className="relative"
+              onClick={() => setSelected(diff)}
+              className="active:scale-[0.97]"
               style={{
-                width: "70%",
-                maxWidth: 280,
+                width: "82%", maxWidth: 310,
+                borderRadius: 18,
+                padding: "14px 16px",
+                background: "#fff",
+                border: `2px solid ${isSel ? dc.selBorder : "transparent"}`,
+                boxShadow: isSel
+                  ? dc.selShadow
+                  : "0 4px 16px rgba(0,0,0,0.18)",
+                display: "flex", alignItems: "center", gap: 14,
+                textAlign: "left", cursor: "pointer",
+                transition: `border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.4s ease ${delay}s, transform 0.4s ease ${delay}s`,
                 opacity: visible ? 1 : 0,
                 transform: visible ? "none" : "translateY(24px)",
-                transition: `opacity 0.4s ease ${delay}s, transform 0.4s ease ${delay}s`,
               }}
             >
-              <button
-                onClick={() => setSelected(diff)}
-                className="active:scale-[0.98]"
-                style={{
-                  width: "100%",
-                  borderRadius: 14,
-                  padding: "10px 12px",
-                  background: isSel ? dc.bgSel : dc.bgUnsel,
-                  border: `2px solid ${isSel ? dc.borderSel : dc.borderUnsel}`,
-                  boxShadow: isSel
-                    ? `0 0 16px ${dc.glow}, inset 0 1px 0 rgba(255,255,255,0.12)`
-                    : "inset 0 1px 0 rgba(255,255,255,0.06)",
-                  backdropFilter: "blur(12px)",
-                  display: "flex", alignItems: "center", gap: 10,
-                  textAlign: "left", cursor: "pointer",
-                  transition: "all 0.22s ease",
-                }}
-              >
-                {/* 아이콘 */}
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                  background: isSel ? `${dc.accent}22` : "rgba(255,255,255,0.08)",
-                  border: `1.5px solid ${isSel ? `${dc.accent}80` : "rgba(255,255,255,0.12)"}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 20,
-                }}>
-                  {dc.emoji}
-                </div>
+              {/* 아이콘 원 */}
+              <div style={{
+                width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+                background: dc.iconBg,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 26,
+              }}>
+                {dc.emoji}
+              </div>
 
-                {/* 텍스트 */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{
-                    fontSize: 17, fontWeight: 900,
-                    color: isSel ? dc.accent : "#fff",
-                    lineHeight: 1.2,
-                    textShadow: isSel ? `0 0 8px ${dc.glow}` : "0 1px 4px rgba(0,0,0,0.5)",
+              {/* 텍스트 */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span style={{
+                    fontSize: 18, fontWeight: 900,
+                    color: "#1a1a1a", lineHeight: 1,
                   }}>
                     {t(`endless.diff.${diff}`)}
-                  </p>
-                  <p style={{
-                    fontSize: 11, fontWeight: 500, marginTop: 2,
-                    color: isSel ? `${dc.accent}99` : "rgba(255,255,255,0.5)",
+                  </span>
+                  {/* 난이도 태그 */}
+                  <span style={{
+                    fontSize: 10, fontWeight: 700,
+                    background: dc.tagBg, color: dc.tagText,
+                    borderRadius: 999, padding: "2px 8px",
                   }}>
-                    보드 크기: {cfg.boardSize}×{cfg.boardSize}
-                  </p>
+                    {cfg.boardSize}×{cfg.boardSize}
+                  </span>
                 </div>
-              </button>
+              </div>
 
-              {/* 선택 체크 배지 */}
+              {/* 선택 체크 */}
               {isSel && (
                 <div style={{
-                  position: "absolute", top: -8, right: -5,
-                  width: 22, height: 22, borderRadius: "50%",
-                  background: dc.checkColor,
-                  border: "2px solid #fff",
-                  boxShadow: `0 2px 6px ${dc.glow}`,
+                  width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                  background: dc.selBorder,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 11, fontWeight: 900, color: "#fff",
-                  zIndex: 2,
+                  fontSize: 13, fontWeight: 900, color: "#fff",
                 }}>✓</div>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -314,9 +301,9 @@ export function EndlessDifficultyModal({
               opacity:    visible ? 1 : 0,
               transition: "opacity 0.4s ease 0.35s, transform 0.15s ease",
               borderRadius: 999,
-              background: dc.accent,
+              background: dc.startBg,
               backdropFilter: "blur(8px)",
-              boxShadow: `0 0 24px ${dc.glow}, 0 0 48px ${dc.glow}, inset 0 1px 0 rgba(255,255,255,0.3)`,
+              boxShadow: `0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3)`,
               animation: "endlessStartGlow 2.4s ease-in-out infinite",
               overflow:   "hidden",
             }}

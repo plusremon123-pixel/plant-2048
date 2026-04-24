@@ -31,7 +31,7 @@ function getCardStatus(
   if (card.status === "coming_soon")      return "coming_soon";
   if (card.status === "premium")          return premiumActive ? "premium_active" : "premium_locked";
   if (card.unlockLevel === 0)             return clearedLevel >= 9 ? "acquired" : "locked";
-  if (playerLevel >= card.unlockLevel)    return "acquirable";
+  if (playerLevel >= card.unlockLevel)    return "acquired";
   return "locked";
 }
 
@@ -91,15 +91,17 @@ function CollectionCard({
   if (status === "premium_locked") {
     return (
       <div
-        className="relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 border border-amber-200/60"
-        style={{ background: "#fffbeb" }}
+        className="relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3"
+        style={{ background: "#f5f0ff", border: "1.5px dashed rgba(167,139,250,0.55)" }}
       >
-        <div className="absolute inset-0 rounded-2xl flex items-center justify-center z-10 bg-white/40">
-          <span className="text-2xl leading-none opacity-60">🔒</span>
-        </div>
-        <span className="text-2xl leading-none opacity-30">{card.emoji}</span>
-        <p className="text-[11px] font-bold text-amber-600/40 leading-none text-center">{cardName}</p>
-        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-500">{t("cardCollection.statusPremiumLocked")}</span>
+        <span className="text-2xl leading-none" style={{ opacity: 0.75 }}>{card.emoji}</span>
+        <p className="text-[11px] font-bold leading-none text-center" style={{ color: "#6d28d9" }}>{cardName}</p>
+        <p
+          className="text-[9px] text-center leading-tight px-0.5 whitespace-pre-line"
+          style={{ color: "#7c3aed99", minHeight: "2.4em" }}
+        >
+          {t(`card.desc.${card.collectionId}`)}
+        </p>
       </div>
     );
   }
@@ -108,7 +110,7 @@ function CollectionCard({
   if (status === "premium_active") {
     return (
       <div
-        className="relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 border-2 shadow-sm"
+        className="relative flex flex-col items-center gap-1 rounded-2xl px-2 py-2 border-2 shadow-sm"
         style={{ background: palette.bg, borderColor: palette.ring }}
       >
         <div
@@ -117,10 +119,9 @@ function CollectionCard({
         >
           💎
         </div>
-        <span className="text-2xl leading-none">{card.emoji}</span>
+        <span className="text-xl leading-none">{card.emoji}</span>
         <p className="text-[11px] font-bold leading-none text-center" style={{ color: palette.text }}>{cardName}</p>
         <p className="text-[9px] text-center leading-tight px-0.5 whitespace-pre-line" style={{ color: palette.text + "aa", minHeight: "2.4em" }}>{t(`card.desc.${card.collectionId}`)}</p>
-        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5" style={{ background: palette.badge + "22", color: palette.badge }}>{t("cardCollection.statusPremium")}</span>
       </div>
     );
   }
@@ -129,17 +130,17 @@ function CollectionCard({
   if (status === "locked") {
     return (
       <div
-        className="relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 border border-foreground/6"
+        className="relative flex flex-col items-center gap-1 rounded-2xl px-2 py-2 border border-foreground/6"
         style={{ background: "#f9fafb" }}
       >
-        <span className="text-2xl leading-none opacity-20">{card.emoji}</span>
+        <span className="text-xl leading-none opacity-20">{card.emoji}</span>
         <p className="text-[11px] font-bold text-foreground/25 leading-none text-center">{cardName}</p>
-        <span
-          className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-          style={{ background: "#e5e7eb", color: "#6b7280" }}
+        <p
+          className="text-[9px] text-center leading-tight px-0.5 whitespace-pre-line"
+          style={{ color: "#9ca3af", minHeight: "2.4em" }}
         >
-          {card.unlockLevel === 0 ? t("cardCollection.statusLockedStage") : t("cardCollection.unlockHint", { level: card.unlockLevel })}
-        </span>
+          {t(`card.desc.${card.collectionId}`)}
+        </p>
       </div>
     );
   }
@@ -148,7 +149,7 @@ function CollectionCard({
   if (status === "acquirable") {
     return (
       <div
-        className="relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 border-2 animate-pulse-soft"
+        className="relative flex flex-col items-center gap-1 rounded-2xl px-2 py-2 border-2 animate-pulse-soft"
         style={{
           background:   palette.bg + "99",
           borderColor:  palette.ring,
@@ -160,19 +161,13 @@ function CollectionCard({
         >
           ✦
         </div>
-        <span className="text-2xl leading-none">{card.emoji}</span>
+        <span className="text-xl leading-none">{card.emoji}</span>
         <p
           className="text-[11px] font-bold leading-none text-center"
           style={{ color: palette.text }}
         >
           {cardName}
         </p>
-        <span
-          className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-          style={{ background: palette.badge, color: "#fff" }}
-        >
-          {t("cardCollection.statusAcquirable")}
-        </span>
       </div>
     );
   }
@@ -180,7 +175,7 @@ function CollectionCard({
   /* ── 획득 완료 ──────────────────────────────────────── */
   return (
     <div
-      className="relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 border-2 shadow-sm"
+      className="relative flex flex-col items-center gap-1 rounded-2xl px-2 py-2 border-2 shadow-sm"
       style={{
         background:  palette.bg,
         borderColor: palette.ring,
@@ -192,7 +187,7 @@ function CollectionCard({
       >
         ✓
       </div>
-      <span className="text-2xl leading-none">{card.emoji}</span>
+      <span className="text-xl leading-none">{card.emoji}</span>
       <p
         className="text-[11px] font-bold leading-none text-center"
         style={{ color: palette.text }}
@@ -205,12 +200,6 @@ function CollectionCard({
       >
         {t(`card.desc.${card.collectionId}`)}
       </p>
-      <span
-        className="text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5"
-        style={{ background: palette.badge + "22", color: palette.badge }}
-      >
-        {t("cardCollection.statusOwned")}
-      </span>
     </div>
   );
 }
@@ -233,7 +222,7 @@ export function CardCollectionModal({ player, subscriptionState, onClose, onOpen
 
   const starterCards = CARD_COLLECTION.filter((c) => c.status === "active" && c.unlockLevel === 0);
   const lv100Cards   = CARD_COLLECTION.filter((c) => c.status === "active" && c.unlockLevel === 100);
-  const lv400Cards   = CARD_COLLECTION.filter((c) => c.status === "coming_soon");
+  const lv400Cards   = CARD_COLLECTION.filter((c) => c.status === "active" && c.unlockLevel === 400);
   const premiumCards = CARD_COLLECTION.filter((c) => c.status === "premium");
 
   return createPortal(
@@ -241,27 +230,27 @@ export function CardCollectionModal({ player, subscriptionState, onClose, onOpen
 
       {/* ── 상단 헤더 */}
       <div
-        className="flex items-center gap-3 px-5 pt-safe-top pt-4 pb-3 flex-shrink-0"
+        className="flex items-center gap-2.5 px-5 pt-4 pb-3 flex-shrink-0"
         style={{ borderBottom: `1px solid ${theme.borderColor}50` }}
       >
-        <button
-          onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center rounded-full active:scale-95 transition-all text-sm"
-          style={{ background: theme.borderColor + "40", color: theme.textSecondary }}
-        >
-          ←
-        </button>
         <div className="flex items-center gap-2 flex-1">
-          <img src="/menu-card.png" className="w-6 h-6 object-contain" alt="" draggable={false} />
+          <img src="/menu-card.png" className="w-7 h-7 object-contain" alt="" draggable={false} />
           <h2 className="text-base font-bold" style={{ color: theme.textPrimary }}>{t("cardCollection.title")}</h2>
         </div>
+        <button
+          onClick={onClose}
+          className="w-7 h-7 flex items-center justify-center rounded-full active:scale-95 transition-all text-sm font-bold"
+          style={{ background: theme.borderColor + "40", color: theme.textSecondary }}
+        >
+          ✕
+        </button>
       </div>
 
       {/* ── 스크롤 본문 */}
-      <div className="flex-1 overflow-y-auto px-5 py-4">
+      <div className="flex-1 overflow-y-auto px-5 py-3">
 
-        {/* ── 미해금 상태: 프리미엄 카드 최상단 */}
-        {!cardsUnlocked && (
+        {/* ── 구독 중: 프리미엄 카드 최상단 */}
+        {premiumActive && (
           <PremiumGroup t={t} premiumActive={premiumActive} premiumCards={premiumCards} player={player} onOpenPremium={onOpenPremium} />
         )}
 
@@ -276,16 +265,11 @@ export function CardCollectionModal({ player, subscriptionState, onClose, onOpen
           premiumActive={premiumActive}
         />
 
-        {/* ── 해금 상태: 프리미엄 카드를 시작 카드 바로 아래 */}
-        {cardsUnlocked && (
-          <PremiumGroup t={t} premiumActive={premiumActive} premiumCards={premiumCards} player={player} onOpenPremium={onOpenPremium} />
-        )}
-
         {/* ── Lv.100 해금 그룹 */}
         <CardGroup
           title={t("cardCollection.lv100Cards")}
-          badge={player.clearedLevel >= 100 ? t("cardCollection.lv100BadgeUnlocked") : t("cardCollection.lv100BadgeLocked", { level: player.clearedLevel })}
-          badgeColor={player.clearedLevel >= 100 ? "#10b981" : "#9ca3af"}
+          badge={player.clearedLevel >= 99 ? t("cardCollection.lv100BadgeUnlocked") : t("cardCollection.lv100BadgeLocked", { level: player.clearedLevel })}
+          badgeColor={player.clearedLevel >= 99 ? "#10b981" : "#9ca3af"}
           cards={lv100Cards}
           playerLevel={player.clearedLevel}
           clearedLevel={player.clearedLevel}
@@ -295,13 +279,18 @@ export function CardCollectionModal({ player, subscriptionState, onClose, onOpen
         {/* ── Lv.400 해금 그룹 */}
         <CardGroup
           title={t("cardCollection.lv400Cards")}
-          badge={t("cardCollection.lv400Badge")}
-          badgeColor="#6b7280"
+          badge={player.clearedLevel >= 399 ? t("cardCollection.lv400BadgeUnlocked") : t("cardCollection.lv400BadgeLocked")}
+          badgeColor={player.clearedLevel >= 399 ? "#10b981" : "#9ca3af"}
           cards={lv400Cards}
           playerLevel={player.clearedLevel}
           clearedLevel={player.clearedLevel}
           premiumActive={premiumActive}
         />
+
+        {/* ── 비구독: 프리미엄 카드 최하단 (독립 영역) */}
+        {!premiumActive && (
+          <PremiumLockedSection t={t} premiumCards={premiumCards} player={player} onOpenPremium={onOpenPremium} />
+        )}
 
         <div className="h-6" />
       </div>
@@ -310,7 +299,58 @@ export function CardCollectionModal({ player, subscriptionState, onClose, onOpen
   );
 }
 
-/* ── 프리미엄 그룹 래퍼 (위치 재사용) ─────────────────────── */
+/* ── 비구독 프리미엄 섹션 — 하단 독립 영역 ─────────────────── */
+function PremiumLockedSection({ t, premiumCards, player, onOpenPremium }: {
+  t: (key: string, vars?: Record<string, unknown>) => string;
+  premiumCards: CardCollectionDef[];
+  player: PlayerData;
+  onOpenPremium?: () => void;
+}) {
+  return (
+    <div
+      className="mb-3 rounded-3xl overflow-hidden"
+      style={{
+        background: "linear-gradient(145deg, #f5f0ff 0%, #ede9fe 100%)",
+        border: "1.5px solid rgba(167,139,250,0.45)",
+        boxShadow: "0 2px 12px rgba(124,58,237,0.08)",
+      }}
+    >
+      {/* 헤더 */}
+      <div className="px-4 pt-3 pb-2.5 flex items-center justify-between">
+        <p className="text-sm font-black" style={{ color: "#5b21b6" }}>
+          {t("cardCollection.premiumCards")}
+        </p>
+        {onOpenPremium && (
+          <button
+            onClick={onOpenPremium}
+            className="text-[11px] font-black px-3 py-1.5 rounded-full active:scale-95 transition-all"
+            style={{ background: "#FFC107", color: "#1a0a00" }}
+          >
+            {t("common.subscribe")} →
+          </button>
+        )}
+      </div>
+
+      {/* 구분선 */}
+      <div className="mx-4 h-px" style={{ background: "rgba(167,139,250,0.25)" }} />
+
+      {/* 카드 그리드 */}
+      <div className="px-4 py-3 grid grid-cols-3 gap-2">
+        {premiumCards.map((card) => (
+          <CollectionCard
+            key={card.collectionId}
+            card={card}
+            playerLevel={player.clearedLevel}
+            clearedLevel={player.clearedLevel}
+            premiumActive={false}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── 프리미엄 그룹 래퍼 (구독 중 — 최상단 표시) ───────────── */
 function PremiumGroup({ t, premiumActive, premiumCards, player, onOpenPremium }: {
   t: (key: string, vars?: Record<string, unknown>) => string;
   premiumActive: boolean;
@@ -349,8 +389,8 @@ function CardGroup({
   groupActionLabel?: string;
 }) {
   return (
-    <div className="mb-5">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="mb-3">
+      <div className="flex items-center gap-2 mb-2">
         <p className="text-xs font-bold text-foreground/70">{title}</p>
         <span
           className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
@@ -369,7 +409,7 @@ function CardGroup({
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-3 gap-2">
         {cards.map((card) => (
           <CollectionCard key={card.collectionId} card={card} playerLevel={playerLevel} clearedLevel={clearedLevel} premiumActive={premiumActive} />
         ))}

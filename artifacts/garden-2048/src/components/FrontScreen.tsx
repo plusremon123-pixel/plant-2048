@@ -12,6 +12,7 @@ import {
 } from "@/utils/missionData";
 import { getAdCoinState } from "@/utils/adService";
 import { type Inventory, type ShopItemId } from "@/utils/shopData";
+import type { SubscriptionState } from "@/utils/subscriptionData";
 import type { GameSettings } from "@/hooks/useSettings";
 import { useTranslation } from "@/i18n";
 import {
@@ -19,8 +20,10 @@ import {
   getSeason,
   SEASON_BG,
   SEASON_PULSE_COLOR,
+  SEASON_NODE_FILTER,
 } from "@/utils/seasonData";
 import { SEASON_THEMES, type SeasonTheme } from "@/utils/seasonTheme";
+import { SeasonTransition }       from "./modals/SeasonTransition";
 import { ItemsModal }             from "./modals/ItemsModal";
 import { CardCollectionModal }    from "./modals/CardCollectionModal";
 import { HomeShopModal }          from "./modals/HomeShopModal";
@@ -28,6 +31,7 @@ import { SettingsModal }          from "./modals/SettingsModal";
 import { PremiumPassModal }       from "./modals/PremiumPassModal";
 import { EndlessDifficultyModal } from "./modals/EndlessDifficultyModal";
 import type { EndlessDifficulty } from "@/utils/endlessModeData";
+import { TutorialModal }          from "./TutorialModal";
 
 /* ============================================================
  * Design constants
@@ -113,6 +117,7 @@ interface FrontScreenProps {
   settings?:              GameSettings;
   onToggleSetting?:       (key: keyof GameSettings) => void;
   isPremiumActive?:       boolean;
+  subscriptionState?:     SubscriptionState;
   onBuyPremium?:          () => Promise<void>;
   onStartEndless?:        (difficulty: EndlessDifficulty, resume: boolean) => void;
 }
@@ -131,17 +136,43 @@ export function FrontScreen({
   onEarnCoins, onAdWatched,
   inventory, onBuyItem,
   settings = DEFAULT_SETTINGS, onToggleSetting,
-  isPremiumActive = false, onBuyPremium,
+  isPremiumActive = false, subscriptionState, onBuyPremium,
   onStartEndless,
 }: FrontScreenProps) {
   const { t } = useTranslation();
   const containerRef                        = useRef<HTMLDivElement>(null);
   const [bg, setBg]                         = useState<BgLayout>({ offsetX: 0, offsetY: 0, renderW: 0, renderH: 0, containerW: 0, containerH: 0 });
-  const [showMissionModal, setShowMissionModal] = useState(false);
-  const [activeModal,      setActiveModal]      = useState<ActiveModal>(null);
-
-  // ── 계절 판별 — clearedLevel+1 = 플레이어가 현재 있는 stage 기준 ──
+  const [showMissionModal,    setShowMissionModal]    = useState(false);
+  const [activeModal,         setActiveModal]         = useState<ActiveModal>(null);
+  const [showTutorialReplay,  setShowTutorialReplay]  = useState(false);
+// ── 계절 판별 — clearedLevel+1 = 플레이어가 현재 있는 stage 기준 ──
   const season: Season = getSeason(Math.max(1, player.clearedLevel + 1));
+
+  /* ── 계절 전환 애니메이션 ───────────────────────────────────────────
+     localStorage 에 마지막으로 머물렀던 계절을 저장하고, FrontScreen이
+     마운트되거나 clearedLevel 변경으로 season이 바뀌면 1회 재생한다.
+     (초기 진입 시에는 재생하지 않고 현재 계절만 저장) */
+  const SEASON_LAST_KEY = "plant2048_last_season";
+  const [seasonTransition, setSeasonTransition] =
+    useState<{ from: Season; to: Season } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(SEASON_LAST_KEY) as Season | null;
+    if (!stored) {
+      localStorage.setItem(SEASON_LAST_KEY, season);
+      return;
+    }
+    if (stored !== season) {
+      setSeasonTransition({ from: stored, to: season });
+    }
+  }, [season]);
+
+  const handleSeasonTransitionDone = () => {
+    setSeasonTransition((cur) => {
+      if (cur) localStorage.setItem(SEASON_LAST_KEY, cur.to);
+      return null;
+    });
+  };
 
   /* 컨테이너 크기 추적 → BgLayout 업데이트 (cover 모드 기준) */
   useEffect(() => {
@@ -197,7 +228,9 @@ export function FrontScreen({
   const rightMenuItems: MenuItemDef[] = [
     { key: "shop",      x: 906, y: 166, iconPng: "/menu-shop.png",      bgColor: "#F8E6C6", textColor: "#4C2E0C" },
     { key: "settings",  x: 906, y: 379, iconPng: "/menu-settings.png",  bgColor: "#F8E6C6", textColor: "#4C2E0C" },
-    { key: "subscribe", x: 906, y: 592, iconPng: "/menu-subscribe.png", bgColor: "#FFAE00", textColor: "#6D1D00" },
+    ...(!isPremiumActive ? [
+      { key: "subscribe", x: 906, y: 592, iconPng: "/menu-subscribe.png", bgColor: "#FFAE00", textColor: "#6D1D00" },
+    ] : []),
   ];
 
   const menuLabel: Record<string, string> = {
@@ -227,7 +260,21 @@ export function FrontScreen({
   return (
     <div ref={containerRef} className="relative h-[100dvh] w-full overflow-hidden">
 
-      {/* ── 배경 이미지 — 계절(season)에 따라 home_bg_1~4.svg 로 자동 교체 ── */}
+      {/* ── 계절 전환 애니메이션 오버레이 ────────────────────────────── */}
+      {seasonTransition && (
+        <SeasonTransition
+          from={seasonTransition.from}
+          to={seasonTransition.to}
+          onDone={handleSeasonTransitionDone}
+        />
+      )}
+
+      {/* ── 튜토리얼 다시 보기 (설정에서 열릴 때) ──────────────────── */}
+      {showTutorialReplay && (
+        <TutorialModal onDone={() => setShowTutorialReplay(false)} />
+      )}
+
+{/* ── 배경 이미지 — 계절(season)에 따라 home_bg_1~4.svg 로 자동 교체 ── */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -245,14 +292,9 @@ export function FrontScreen({
       {ready && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
 
-          {/* ── 상단 광고 ────────────────────────────────────── */}
-          <TopAdBanner bg={bg} />
-
           {/* ── 타이틀 ──────────────────────────────────────── */}
           <HomeTitle bg={bg} />
 
-          {/* ── 코인 표시 ────────────────────────────────────── */}
-          <CoinDisplay coins={player.coins} bg={bg} />
 
           {/* ── 메뉴 버튼 ────────────────────────────────────── */}
           {[...leftMenuItems, ...rightMenuItems].map((item) => (
@@ -283,7 +325,7 @@ export function FrontScreen({
       {/* ── 하단 광고 (portal) ──────────────────────────────── */}
       {createPortal(
         <div className="fixed bottom-0 left-0 right-0 z-[30]">
-          <AdBanner position="bottom" />
+          <AdBanner />
         </div>,
         document.body,
       )}
@@ -317,6 +359,7 @@ export function FrontScreen({
         <PremiumPassModal
           onBuy={async () => { await onBuyPremium?.(); closeModal(); }}
           onClose={closeModal}
+          subscriptionState={subscriptionState}
           season={season}
         />
       )}
@@ -348,29 +391,17 @@ export function FrontScreen({
       )}
 
       {activeModal === "settings" && onToggleSetting && (
-        <SettingsModal settings={settings} onToggle={onToggleSetting} onClose={closeModal} season={season} />
+        <SettingsModal
+          settings={settings}
+          onToggle={onToggleSetting}
+          onClose={closeModal}
+          onShowTutorial={() => { closeModal(); setShowTutorialReplay(true); }}
+          subscriptionState={subscriptionState}
+          onBuyPremium={onBuyPremium}
+          season={season}
+        />
       )}
 
-    </div>
-  );
-}
-
-/* ============================================================
- * TopAdBanner — 배경 좌표계 기준 상단 고정
- * ============================================================ */
-function TopAdBanner({ bg }: { bg: BgLayout }) {
-  const { ry: top } = toRenderPoint(0, 0, bg);
-  const h = (110 / DESIGN_H) * bg.renderH;
-  return (
-    <div
-      className="pointer-events-auto"
-      style={{
-        position: "absolute",
-        left: 0, top, width: "100%", height: h,
-        zIndex: 30,
-      }}
-    >
-      <AdBanner position="top" />
     </div>
   );
 }
@@ -644,34 +675,15 @@ function HomeStageMap({
 }
 
 /* ============================================================
- * NODE_ASSETS — season × status 기준 PNG 경로 매핑
- * public/nodes/ 폴더의 실제 파일명과 일치
+ * NODE_ASSETS — status 기준 PNG 경로 매핑
+ * spring 에셋만 사용하고, 여름/가을/겨울은 CSS filter 로 톤 변경
+ * (SEASON_NODE_FILTER in seasonData.ts)
  * ============================================================ */
-const NODE_ASSETS: Record<Season, Record<NodeStatus, string>> = {
-  spring: {
-    done:      "/nodes/spring_end.png",
-    current:   "/nodes/spring_stay.png",
-    available: "/nodes/spring_ready.png",
-    locked:    "/nodes/spring_ready.png",
-  },
-  summer: {
-    done:      "/nodes/summer_end.png",
-    current:   "/nodes/summer_stay.png",
-    available: "/nodes/summer_ready.png",
-    locked:    "/nodes/summer_ready.png",
-  },
-  autumn: {
-    done:      "/nodes/autumn_end.png",
-    current:   "/nodes/autumn_stay.png",
-    available: "/nodes/autumn_ready.png",
-    locked:    "/nodes/autumn_ready.png",
-  },
-  winter: {
-    done:      "/nodes/winter_end.png",
-    current:   "/nodes/winter_stay.png",
-    available: "/nodes/winter_ready.png",
-    locked:    "/nodes/winter_ready.png",
-  },
+const NODE_ASSETS: Record<NodeStatus, string> = {
+  done:      "/nodes/spring_end.png",
+  current:   "/nodes/spring_stay.png",
+  available: "/nodes/spring_ready.png",
+  locked:    "/nodes/spring_ready.png",
 };
 
 /* ============================================================
@@ -773,9 +785,9 @@ function StageNode({ level, status, season, x, y, scaleX, onClick }: StageNodePr
         }}
         aria-label={`스테이지 ${level}`}
       >
-        {/* 계절×상태 PNG 노드 아이콘 */}
+        {/* PNG 노드 아이콘 — spring 에셋 + 계절별 CSS filter */}
         <img
-          src={NODE_ASSETS[season][status]}
+          src={NODE_ASSETS[status]}
           alt=""
           draggable={false}
           style={{
@@ -784,6 +796,7 @@ function StageNode({ level, status, season, x, y, scaleX, onClick }: StageNodePr
             height:     nodeHeight,
             objectFit:  "contain",
             opacity:    status === "done" ? 0.72 : 1,
+            filter:     SEASON_NODE_FILTER[season],
           }}
         />
 
@@ -968,23 +981,33 @@ function DailyMissionList({ missions, onClaim, onEarnCoins, onAdWatched, theme }
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold leading-tight" style={{ color: theme.textPrimary }}>{t(mission.title)}</p>
               <p className="text-xs" style={{ color: theme.textMuted }}>{t(mission.description)}</p>
-              {mission.target > 1 && status === "incomplete" && (
+              {/* target>1인 미션은 항상 같은 높이의 진행 바 영역 확보 */}
+              {mission.target > 1 && (
                 <div className="mt-1 w-full h-1.5 rounded-full overflow-hidden" style={{ background: theme.borderColor + "40" }}>
-                  <div className="h-full rounded-full transition-all" style={{ width: `${(prog / mission.target) * 100}%`, background: theme.btnPrimary + "80" }} />
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: status === "incomplete" ? `${(prog / mission.target) * 100}%` : "100%",
+                      background: status === "incomplete" ? theme.btnPrimary + "80" : theme.btnPrimary + "40",
+                    }}
+                  />
                 </div>
               )}
             </div>
             <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
               <span className="text-xs font-bold" style={{ color: "#e65100" }}>🪙{mission.reward}</span>
-              {status === "complete" && (
-                <button
-                  onClick={() => onClaim?.(mission.id)}
-                  className="text-[10px] font-bold px-2.5 py-1 rounded-full active:scale-95 transition-all"
-                  style={{ background: theme.btnPrimary, color: theme.btnPrimaryText }}
-                >{t("ranking.claimReward")}</button>
-              )}
-              {status === "claimed" && <span className="text-[10px] font-medium" style={{ color: theme.textMuted }}>✓</span>}
-              {status === "incomplete" && mission.target > 1 && <span className="text-[10px]" style={{ color: theme.textMuted }}>{prog}/{mission.target}</span>}
+              {/* 고정 높이로 수령 전/후 행 높이 통일 */}
+              <div className="h-[22px] flex items-center justify-end">
+                {status === "complete" && (
+                  <button
+                    onClick={() => onClaim?.(mission.id)}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-full active:scale-95 transition-all"
+                    style={{ background: theme.btnPrimary, color: theme.btnPrimaryText }}
+                  >{t("ranking.claimReward")}</button>
+                )}
+                {status === "claimed" && <span className="text-[10px] font-medium" style={{ color: theme.textMuted }}>✓</span>}
+                {status === "incomplete" && mission.target > 1 && <span className="text-[10px]" style={{ color: theme.textMuted }}>{prog}/{mission.target}</span>}
+              </div>
             </div>
           </div>
         );
@@ -1021,23 +1044,33 @@ function WeeklyMissionList({ weeklyMissions, onClaim, onEarnCoins, onAdWatched, 
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold leading-tight" style={{ color: theme.textPrimary }}>{t(mission.title)}</p>
               <p className="text-xs" style={{ color: theme.textMuted }}>{t(mission.description)}</p>
-              {mission.target > 1 && status === "incomplete" && (
+              {/* target>1인 미션은 항상 같은 높이의 진행 바 영역 확보 */}
+              {mission.target > 1 && (
                 <div className="mt-1 w-full h-1.5 rounded-full overflow-hidden" style={{ background: theme.borderColor + "40" }}>
-                  <div className="h-full rounded-full transition-all" style={{ width: `${(prog / mission.target) * 100}%`, background: "#FFC107" + "90" }} />
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: status === "incomplete" ? `${(prog / mission.target) * 100}%` : "100%",
+                      background: status === "incomplete" ? "#FFC107" + "90" : "#FFC107" + "40",
+                    }}
+                  />
                 </div>
               )}
             </div>
             <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
               <span className="text-xs font-bold" style={{ color: "#e65100" }}>🪙{mission.reward}</span>
-              {status === "complete" && (
-                <button
-                  onClick={() => onClaim?.(mission.id)}
-                  className="text-[10px] font-bold px-2.5 py-1 rounded-full active:scale-95 transition-all"
-                  style={{ background: theme.btnPrimary, color: theme.btnPrimaryText }}
-                >{t("ranking.claimReward")}</button>
-              )}
-              {status === "claimed" && <span className="text-[10px] font-medium" style={{ color: theme.textMuted }}>✓</span>}
-              {status === "incomplete" && mission.target > 1 && <span className="text-[10px]" style={{ color: theme.textMuted }}>{prog}/{mission.target}</span>}
+              {/* 고정 높이로 수령 전/후 행 높이 통일 */}
+              <div className="h-[22px] flex items-center justify-end">
+                {status === "complete" && (
+                  <button
+                    onClick={() => onClaim?.(mission.id)}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-full active:scale-95 transition-all"
+                    style={{ background: theme.btnPrimary, color: theme.btnPrimaryText }}
+                  >{t("ranking.claimReward")}</button>
+                )}
+                {status === "claimed" && <span className="text-[10px] font-medium" style={{ color: theme.textMuted }}>✓</span>}
+                {status === "incomplete" && mission.target > 1 && <span className="text-[10px]" style={{ color: theme.textMuted }}>{prog}/{mission.target}</span>}
+              </div>
             </div>
           </div>
         );
@@ -1081,11 +1114,22 @@ function FreeCoinsButton({ onEarnCoins, onAdWatched }: { onEarnCoins?: (n: numbe
   );
 }
 
-/* ── AdBanner placeholder ───────────────────────────────────── */
-function AdBanner({ position }: { position: "top" | "bottom" }) {
+/* ── AdBanner — 웹: 플레이스홀더 / 네이티브: AdMob 하단 배너 표시 ── */
+function AdBanner() {
+  useEffect(() => {
+    let cancelled = false;
+    import("@/utils/adProvider").then(({ showBanner }) => {
+      if (!cancelled) void showBanner("bottom");
+    });
+    return () => {
+      cancelled = true;
+      import("@/utils/adProvider").then(({ removeBanner }) => void removeBanner());
+    };
+  }, []);
+
   return (
     <div
-      className={["w-full h-10 flex items-center justify-center text-[11px] font-medium select-none flex-shrink-0", "bg-white/55 backdrop-blur-sm text-foreground/30", position === "top" ? "border-b border-white/40" : "border-t border-white/40"].join(" ")}
+      className="w-full h-10 flex items-center justify-center text-[11px] font-medium select-none flex-shrink-0 border-t border-white/40 bg-white/55 backdrop-blur-sm text-foreground/30"
       aria-hidden="true"
     >
       AD

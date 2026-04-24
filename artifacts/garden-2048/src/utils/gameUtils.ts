@@ -1,5 +1,5 @@
 /* ── 타일 타입 ────────────────────────────────────────────── */
-export type TileType = "number" | "soil" | "thorn";
+export type TileType = "number" | "soil" | "thorn" | "thorn_spread" | "rock";
 
 export type TileData = {
   id: string;
@@ -9,6 +9,7 @@ export type TileData = {
   isNew?: boolean;
   isMerged?: boolean;
   tileType?: TileType; // undefined | "number" = 일반 숫자 타일
+  hp?: number;         // rock 전용: 3→2→1→0(제거)
 };
 
 export type GameState = {
@@ -18,15 +19,20 @@ export type GameState = {
   score: number;
   hasWon: boolean;
   hasLost: boolean;
-  turnsLeft?: number;  // -1 or undefined = 제한 없음
+  lostByTurns?: boolean;       // turnsLeft === 0 으로 종료 시 true
+  turnsLeft?: number;          // -1 or undefined = 제한 없음
   maxTurns?:  number;
-  goalValue?: number;  // undefined = 2048
-  boardSize?: number;  // undefined = 4 (default)
+  goalValue?: number;          // undefined = 2048
+  boardSize?: number;          // undefined = 4 (default)
+  thornImmunityTurns?: number; // 가시 번짐 면역 잔여 턴 수
 };
 
 /* 장애물 여부 */
 export const isObstacle = (tile: TileData | null): boolean =>
-  tile?.tileType === "soil" || tile?.tileType === "thorn";
+  tile?.tileType === "soil" ||
+  tile?.tileType === "thorn" ||
+  tile?.tileType === "thorn_spread" ||
+  tile?.tileType === "rock";
 
 let nextId = 0;
 export const generateId = () => `tile-${Date.now()}-${nextId++}`;
@@ -87,6 +93,9 @@ export const initializeGame = (size = 4): GameState => {
     hasWon: false,
     hasLost: false,
     boardSize: size,
+    maxTurns:            -1,  // 기본: 무제한 턴
+    turnsLeft:           -1,  // 기본: 무제한 턴
+    thornImmunityTurns:  0,   // 기본: 면역 없음
   };
 };
 
@@ -246,6 +255,34 @@ export const moveBoard = (
         newActiveTiles[tile.id].x       = current.x;
         newActiveTiles[tile.id].y       = current.y;
         moved = true;
+
+        /* ── 장애물 충돌 효과 (슬라이드 후 next 칸이 장애물인 경우) ── */
+        if (
+          next.x >= 0 && next.x < size &&
+          next.y >= 0 && next.y < size
+        ) {
+          const obs = newBoard[next.y][next.x];
+          if (obs?.tileType === "rock") {
+            /* 바위: HP 1 감소. HP=0 이면 제거. 이동 타일은 current에 유지. */
+            const newHp = (obs.hp ?? 3) - 1;
+            if (newHp <= 0) {
+              newBoard[next.y][next.x] = null;
+              delete newActiveTiles[obs.id];
+            } else {
+              const updatedRock: TileData = { ...obs, hp: newHp };
+              newBoard[next.y][next.x]    = updatedRock;
+              newActiveTiles[obs.id]      = updatedRock;
+            }
+          } else if (obs?.tileType === "thorn") {
+            /* 원본 가시: 완전 차단 — 타일도·가시도 소멸 없음 (soil처럼 이동만 막음) */
+            /* 아무것도 하지 않음: 타일은 current 위치에 그대로 */
+          } else if (obs?.tileType === "thorn_spread") {
+            /* 번진 가시: 번진 가시만 제거, 내 타일은 유지 */
+            newBoard[next.y][next.x] = null;
+            delete newActiveTiles[obs.id];
+          }
+          /* soil: 효과 없음 (타일이 current에서 멈춤) */
+        }
       }
     });
   });
@@ -267,24 +304,27 @@ export const moveBoard = (
 
   const goalValue = currentState.goalValue ?? 2048;
   const hasWon    = currentState.hasWon || checkWin(newBoard, goalValue);
+  const lostByTurns = !hasWon &&
+    newTurnsLeft !== undefined && newTurnsLeft >= 0 && newTurnsLeft === 0;
   const hasLost   =
     !hasWon &&
-    (checkLose(newBoard) ||
-      (newTurnsLeft !== undefined && newTurnsLeft >= 0 && newTurnsLeft === 0));
+    (checkLose(newBoard) || lostByTurns);
 
   return {
     moved,
     newState: {
-      board:        newBoard,
-      activeTiles:  newActiveTiles,
+      board:               newBoard,
+      activeTiles:         newActiveTiles,
       graveyard,
-      score:        currentState.score + scoreGained,
+      score:               currentState.score + scoreGained,
       hasWon,
       hasLost,
-      turnsLeft:    newTurnsLeft,
-      maxTurns:     currentState.maxTurns,
-      goalValue:    currentState.goalValue,
-      boardSize:    currentState.boardSize,
+      lostByTurns,
+      turnsLeft:           newTurnsLeft,
+      maxTurns:            currentState.maxTurns,
+      goalValue:           currentState.goalValue,
+      boardSize:           currentState.boardSize,
+      thornImmunityTurns:  currentState.thornImmunityTurns,
     },
   };
 };

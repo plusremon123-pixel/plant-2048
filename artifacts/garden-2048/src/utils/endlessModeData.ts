@@ -12,7 +12,7 @@ export type EndlessDifficulty = "easy" | "normal" | "hard";
 /* ── 난이도별 설정 ─────────────────────────────────────────── */
 export interface EndlessConfig {
   difficulty:   EndlessDifficulty;
-  boardSize:    5 | 6;
+  boardSize:    4 | 5 | 6;
   goals:        [number, number, number];       // 1~3단계 목표 타일
   goldRewards:  [number, number, number];       // 1~3단계 골드
   itemPool:     { itemId: ShopItemId; weight: number }[];
@@ -21,7 +21,7 @@ export interface EndlessConfig {
 export const ENDLESS_CONFIGS: Record<EndlessDifficulty, EndlessConfig> = {
   easy: {
     difficulty:  "easy",
-    boardSize:   5,
+    boardSize:   4,
     goals:       [2048, 4096, 8192],
     goldRewards: [30, 60, 120],
     itemPool: [
@@ -32,7 +32,7 @@ export const ENDLESS_CONFIGS: Record<EndlessDifficulty, EndlessConfig> = {
   },
   normal: {
     difficulty:  "normal",
-    boardSize:   6,
+    boardSize:   5,
     goals:       [4096, 8192, 16384],
     goldRewards: [60, 120, 240],
     itemPool: [

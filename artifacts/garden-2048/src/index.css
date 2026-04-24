@@ -14,33 +14,38 @@
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-primary-hover: hsl(var(--primary-hover));
 
-  /* Plant Theme Tile Colors */
-  --color-tile-2: hsl(138 76% 97%);
-  --color-tile-4: hsl(141 79% 93%);
-  --color-tile-8: hsl(142 76% 85%);
-  --color-tile-16: hsl(142 71% 73%);
-  --color-tile-32: hsl(142 72% 64%);
-  --color-tile-64: hsl(142 76% 46%);
-  --color-tile-128: hsl(142 76% 36%);
-  --color-tile-256: hsl(142 72% 29%);
-  --color-tile-512: hsl(142 64% 24%);
-  --color-tile-1024: hsl(45 93% 50%);
-  --color-tile-2048: hsl(38 92% 44%);
-  
-  --color-text-dark: hsl(142 64% 14%);
+  /* Plant Theme Tile Colors — 갈색 보드(#E8D0A8)와 어울리는 웜톤 그라데이션
+     크림 → 피치 → 코랄 → 테라코타 → 앰버 → 골드 */
+  --color-tile-2:    hsl(38 82% 96%);  /* 미백 크림 */
+  --color-tile-4:    hsl(32 75% 91%);  /* 라이트 피치 */
+  --color-tile-8:    hsl(26 78% 83%);  /* 페일 피치 */
+  --color-tile-16:   hsl(22 82% 72%);  /* 웜 피치 */
+  --color-tile-32:   hsl(18 80% 62%);  /* 코랄 */
+  --color-tile-64:   hsl(15 78% 52%);  /* 테라코타 라이트 */
+  --color-tile-128:  hsl(12 72% 44%);  /* 테라코타 */
+  --color-tile-256:  hsl(10 65% 36%);  /* 딥 러셋 */
+  --color-tile-512:  hsl(26 70% 38%);  /* 앰버 브라운 */
+  --color-tile-1024:  hsl(42 90% 50%);  /* 골드 */
+  --color-tile-2048:  hsl(36 92% 44%);  /* 딥 골드 */
+  --color-tile-4096:  hsl(32 95% 38%);  /* 브론즈 */
+  --color-tile-8192:  hsl(280 55% 48%); /* 로열 퍼플 */
+  --color-tile-16384: hsl(260 65% 38%); /* 딥 퍼플 */
+  --color-tile-32768: hsl(220 70% 32%); /* 다크 사파이어 */
+
+  --color-text-dark:  hsl(22 60% 18%);  /* 진한 브라운 텍스트 */
   --color-text-light: hsl(0 0% 100%);
 }
 
 :root {
-  --background: 140 30% 98%;
-  --foreground: 142 64% 14%;
-  
-  --board: 142 20% 86%;
-  --cell: 142 25% 78%;
-  
-  --primary: 142 76% 36%;
+  --background: 34 60% 94%;
+  --foreground: 22 60% 18%;
+
+  --board: 30 50% 78%;
+  --cell: 30 45% 68%;
+
+  --primary: 26 45% 36%;
   --primary-foreground: 0 0% 100%;
-  --primary-hover: 142 72% 29%;
+  --primary-hover: 26 50% 28%;
   
   --board-gap: 0.75rem;
   --board-size: 4;
@@ -279,6 +284,23 @@
   0%   { opacity: 0; transform: translateY(40px) scale(0.95); }
   100% { opacity: 1; transform: translateY(0px) scale(1); }
 }
+/* ── 계절 전환 애니메이션 (옵션 C: 자연 현상 레이어) ─── */
+@keyframes seasonParticleFall {
+  0%   { transform: translateY(0)     translateX(0)              rotate(var(--rot, 0deg));   opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { transform: translateY(110vh) translateX(var(--drift, 0)) rotate(calc(var(--rot, 0deg) + 540deg)); opacity: 0; }
+}
+@keyframes seasonParticleExit {
+  0%   { transform: translateY(0)     translateX(0)              scale(1)   rotate(var(--rot, 0deg));   opacity: 0.9; }
+  30%  { opacity: 1; }
+  100% { transform: translateY(-80vh) translateX(var(--drift, 0)) scale(0.3) rotate(calc(var(--rot, 0deg) + 360deg)); opacity: 0; }
+}
+@keyframes seasonRayPulse {
+  0%, 100% { transform: scale(0.6); opacity: 0; }
+  40%      { transform: scale(1.0); opacity: 0.95; }
+  70%      { transform: scale(1.25); opacity: 0.55; }
+}
 @keyframes btnReveal {
   0%   { opacity: 0; transform: translateY(20px) scale(0.96); }
   100% { opacity: 1; transform: translateY(0px) scale(1); }
@@ -294,4 +316,56 @@
 @keyframes endlessStartGlow {
   0%, 100% { opacity: 0.92; }
   50%       { opacity: 1; }
+}
+
+/* ── 카드 튜토리얼 말풍선 바운스 ─────────────────────────── */
+@keyframes tutorialBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0);   }
+  50%       { transform: translateX(-50%) translateY(-5px); }
+}
+
+/* ── SplashScreen 전용 애니메이션 ──────────────────────── */
+@keyframes splashFadeIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes splashFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes splashProgress {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+@keyframes splashPetalDrift {
+  0%   { transform: translateY(-10px) translateX(0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.7; }
+  90%  { opacity: 0.4; }
+  100% { transform: translateY(110vh) translateX(var(--pdrift, 0px)) rotate(360deg); opacity: 0; }
+}
+
+/* ── TutorialModal 전용 애니메이션 ─────────────────────── */
+@keyframes tutCardSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes tutArrowUp {
+  0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.5; }
+  50%       { transform: translateX(-50%) translateY(-6px); opacity: 1; }
+}
+@keyframes tutArrowDown {
+  0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.5; }
+  50%       { transform: translateX(-50%) translateY(6px); opacity: 1; }
+}
+@keyframes tutArrowLeft {
+  0%, 100% { transform: translateY(-50%) translateX(0); opacity: 0.5; }
+  50%       { transform: translateY(-50%) translateX(-6px); opacity: 1; }
+}
+@keyframes tutArrowRight {
+  0%, 100% { transform: translateY(-50%) translateX(0); opacity: 0.5; }
+  50%       { transform: translateY(-50%) translateX(6px); opacity: 1; }
+}
+@keyframes tutTilePop {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.15); }
 }

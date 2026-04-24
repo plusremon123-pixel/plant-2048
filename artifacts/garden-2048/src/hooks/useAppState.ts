@@ -10,7 +10,7 @@
 import { useState, useCallback } from "react";
 import { THEME_STORAGE_KEY, THEMES } from "@/utils/themes";
 
-export type Screen = "front" | "game" | "endless" | "endless-select";
+export type Screen = "splash" | "tutorial" | "front" | "game" | "endless" | "endless-select";
 
 const loadSavedTheme = (): string => {
   try {
@@ -23,7 +23,7 @@ const loadSavedTheme = (): string => {
 };
 
 export function useAppState() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>("front");
+  const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedThemeId, setSelectedThemeId] = useState<string>(loadSavedTheme);
 
   /* 테마 선택 - localStorage에도 저장 */
@@ -35,6 +35,16 @@ export function useAppState() {
     } catch {
       /* noop */
     }
+  }, []);
+
+  /* 스플래시 화면으로 전환 */
+  const goToSplash = useCallback(() => {
+    setCurrentScreen("splash");
+  }, []);
+
+  /* 튜토리얼 화면으로 전환 */
+  const goToTutorial = useCallback(() => {
+    setCurrentScreen("tutorial");
   }, []);
 
   /* 게임 화면으로 전환 */
@@ -61,6 +71,8 @@ export function useAppState() {
     currentScreen,
     selectedThemeId,
     selectTheme,
+    goToSplash,
+    goToTutorial,
     goToGame,
     goToEndlessSelect,
     goToEndless,

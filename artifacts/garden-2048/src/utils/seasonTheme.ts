@@ -47,126 +47,52 @@ export interface SeasonTheme {
   };
 }
 
+/* ── 전체 갈색 팔레트 (홈 메뉴 missions 카드 기준)
+ *    missions: bg=#F8E6C6, text=#4C2E0C
+ *    팝업/플레이 화면/보드/셀까지 모두 갈색 톤으로 통일.
+ *    sub-tones:
+ *      배경  = #FAF2E4 (밝은 크림)
+ *      보드  = #E8D0A8 (따뜻한 탠)
+ *      셀    = #D4B088 (우디 탠)
+ *      패널  = #F8E6C6 (missions 카드)
+ *      강조  = #8B5A2B (미드 브라운 CTA) */
+const BROWN_THEME = {
+  backgroundColor:   "#FAF2E4",
+  boardColor:        "#E8D0A8",
+  cellColor:         "#D4B088",
+  panelColor:        "#F8E6C6",
+  popupBg:           "#FFF7EA",
+  btnPrimary:        "hsl(26 45% 36%)",       /* #8B5A2B 톤 */
+  btnPrimaryText:    "#FFF7EA",
+  btnPrimaryHover:   "hsl(26 50% 28%)",
+  btnSecondary:      "#F8E6C6",
+  btnSecondaryText:  "#4C2E0C",
+  textPrimary:       "#4C2E0C",
+  textSecondary:     "#6B4423",
+  textMuted:         "#B8946C",
+  accentColor:       "#D4A55C",
+  borderColor:       "#D4B088",
+  shadow:            "rgba(76,46,12,0.14)",
+  popupHeaderBg:     "#F8E6C6",
+  popupHeaderText:   "#4C2E0C",
+} as const;
+
+const BROWN_CSS_VARS = {
+  background:   "34 60% 94%",
+  foreground:   "22 60% 18%",
+  board:        "30 50% 78%",
+  cell:         "30 45% 68%",
+  primary:      "26 45% 36%",
+  primaryHover: "26 50% 28%",
+} as const;
+
+/* 4계절 모두 동일한 갈색 팔레트를 사용한다.
+   (이후 계절감이 필요해지면 backgroundColor/boardColor/cellColor 만 계절별로 덮어쓸 것) */
 export const SEASON_THEMES: Record<Season, SeasonTheme> = {
-  /* ── 봄: 연두·핑크·크림, 밝고 부드러운 파스텔 ───────── */
-  spring: {
-    backgroundColor:   "#f5fbf6",
-    panelColor:        "#e8f5e9",
-    popupBg:           "#fdfff8",
-    boardColor:        "#c8e6c9",
-    cellColor:         "#a5d6a7",
-    btnPrimary:        "hsl(142 76% 36%)",
-    btnPrimaryText:    "#ffffff",
-    btnPrimaryHover:   "hsl(142 72% 29%)",
-    btnSecondary:      "#e8f5e9",
-    btnSecondaryText:  "#1b5e20",
-    textPrimary:       "#1b5e20",
-    textSecondary:     "#2e7d32",
-    textMuted:         "#66bb6a",
-    accentColor:       "#f48fb1",
-    borderColor:       "#a5d6a7",
-    shadow:            "rgba(76,175,80,0.14)",
-    popupHeaderBg:     "#e8f5e9",
-    popupHeaderText:   "#1b5e20",
-    cssVars: {
-      background:   "140 30% 98%",
-      foreground:   "142 64% 14%",
-      board:        "142 20% 86%",
-      cell:         "142 25% 78%",
-      primary:      "142 76% 36%",
-      primaryHover: "142 72% 29%",
-    },
-  },
-
-  /* ── 여름: 에메랄드·청록, 생기 있고 시원한 ─────────── */
-  summer: {
-    backgroundColor:   "#e8f8f5",
-    panelColor:        "#d0f0ea",
-    popupBg:           "#f0fdf9",
-    boardColor:        "#80cbc4",
-    cellColor:         "#4db6ac",
-    btnPrimary:        "hsl(174 60% 34%)",
-    btnPrimaryText:    "#ffffff",
-    btnPrimaryHover:   "hsl(174 60% 26%)",
-    btnSecondary:      "#d0f0ea",
-    btnSecondaryText:  "#004d40",
-    textPrimary:       "#004d40",
-    textSecondary:     "#00695c",
-    textMuted:         "#26a69a",
-    accentColor:       "#ffcc02",
-    borderColor:       "#4db6ac",
-    shadow:            "rgba(0,137,123,0.14)",
-    popupHeaderBg:     "#d0f0ea",
-    popupHeaderText:   "#004d40",
-    cssVars: {
-      background:   "174 50% 95%",
-      foreground:   "174 70% 15%",
-      board:        "174 35% 72%",
-      cell:         "174 40% 62%",
-      primary:      "174 60% 34%",
-      primaryHover: "174 60% 26%",
-    },
-  },
-
-  /* ── 가을: 오렌지·브라운·머스터드, 따뜻하고 안정 ───── */
-  autumn: {
-    backgroundColor:   "#fff8f0",
-    panelColor:        "#ffecd8",
-    popupBg:           "#fffaf4",
-    boardColor:        "#ffcc80",
-    cellColor:         "#ffa726",
-    btnPrimary:        "hsl(24 80% 48%)",
-    btnPrimaryText:    "#ffffff",
-    btnPrimaryHover:   "hsl(24 80% 38%)",
-    btnSecondary:      "#ffecd8",
-    btnSecondaryText:  "#5d2e0c",
-    textPrimary:       "#5d2e0c",
-    textSecondary:     "#8d4a1a",
-    textMuted:         "#d4720a",
-    accentColor:       "#ffc107",
-    borderColor:       "#ffa726",
-    shadow:            "rgba(200,80,0,0.14)",
-    popupHeaderBg:     "#ffecd8",
-    popupHeaderText:   "#5d2e0c",
-    cssVars: {
-      background:   "34 80% 97%",
-      foreground:   "22 70% 21%",
-      board:        "38 100% 75%",
-      cell:         "38 100% 58%",
-      primary:      "24 80% 48%",
-      primaryHover: "24 80% 38%",
-    },
-  },
-
-  /* ── 겨울: 밝은 화이트·블루·연그레이, 차갑고 부드러운 */
-  winter: {
-    backgroundColor:   "#eef4fb",
-    panelColor:        "#ddeaf8",
-    popupBg:           "#f4f8fd",
-    boardColor:        "#90caf9",
-    cellColor:         "#64b5f6",
-    btnPrimary:        "hsl(212 72% 42%)",
-    btnPrimaryText:    "#ffffff",
-    btnPrimaryHover:   "hsl(212 72% 32%)",
-    btnSecondary:      "#ddeaf8",
-    btnSecondaryText:  "#0d2e66",
-    textPrimary:       "#0d2e66",
-    textSecondary:     "#1565c0",
-    textMuted:         "#64b5f6",
-    accentColor:       "#b3e5fc",
-    borderColor:       "#64b5f6",
-    shadow:            "rgba(21,101,192,0.14)",
-    popupHeaderBg:     "#ddeaf8",
-    popupHeaderText:   "#0d2e66",
-    cssVars: {
-      background:   "212 55% 95%",
-      foreground:   "212 70% 22%",
-      board:        "212 80% 75%",
-      cell:         "212 80% 68%",
-      primary:      "212 72% 42%",
-      primaryHover: "212 72% 32%",
-    },
-  },
+  spring: { ...BROWN_THEME, cssVars: { ...BROWN_CSS_VARS } },
+  summer: { ...BROWN_THEME, cssVars: { ...BROWN_CSS_VARS } },
+  autumn: { ...BROWN_THEME, cssVars: { ...BROWN_CSS_VARS } },
+  winter: { ...BROWN_THEME, cssVars: { ...BROWN_CSS_VARS } },
 };
 
 /**

@@ -31,10 +31,22 @@ const BEST_SCORE_KEY     = "plant2048_bestScore";
 const ANIMATION_DURATION = 150;
 const MAX_HISTORY        = 5; /* 최대 되돌리기 스택 깊이 */
 
-export function useGame(stageConfig?: StageConfig, boardSize = 4, initialState?: GameState) {
+export function useGame(
+  stageConfig?: StageConfig,
+  boardSize = 4,
+  initialState?: GameState,
+  options?: { goalValue?: number },
+) {
+  /* 옵션 goalValue 를 초기/리셋 시 반영 (무한 모드 = Infinity 권장) */
+  const applyGoal = useCallback(
+    (s: GameState): GameState =>
+      options?.goalValue !== undefined ? { ...s, goalValue: options.goalValue } : s,
+    [options?.goalValue],
+  );
+
   const [gameState, setGameState] = useState<GameState>(() => {
-    if (initialState) return initialState;
-    return stageConfig ? initializeStage(stageConfig) : initializeGame(boardSize);
+    if (initialState) return applyGoal(initialState);
+    return applyGoal(stageConfig ? initializeStage(stageConfig) : initializeGame(boardSize));
   });
   const [bestScore, setBestScore]             = useState<number>(0);
   const [isAnimating, setIsAnimating]         = useState(false);
@@ -58,7 +70,7 @@ export function useGame(stageConfig?: StageConfig, boardSize = 4, initialState?:
   useEffect(() => {
     if (prevStageIdRef.current === stageConfig?.id) return;
     prevStageIdRef.current = stageConfig?.id;
-    setGameState(stageConfig ? initializeStage(stageConfig) : initializeGame());
+    setGameState(applyGoal(stageConfig ? initializeStage(stageConfig) : initializeGame()));
     setContinuePlaying(false);
     setIsAnimating(false);
     setHistory([]);
@@ -123,7 +135,7 @@ export function useGame(stageConfig?: StageConfig, boardSize = 4, initialState?:
 
   /* ── 새 게임 ──────────────────────────────────────────── */
   const resetGame = useCallback(() => {
-    setGameState(stageConfig ? initializeStage(stageConfig) : initializeGame(boardSize));
+    setGameState(applyGoal(stageConfig ? initializeStage(stageConfig) : initializeGame(boardSize)));
     setContinuePlaying(false);
     setIsAnimating(false);
     setHistory([]);
@@ -144,6 +156,18 @@ export function useGame(stageConfig?: StageConfig, boardSize = 4, initialState?:
       const last = prev[prev.length - 1];
       setGameState({ ...last, graveyard: [] });
       return prev.slice(0, -1);
+    });
+  }, [isAnimating]);
+
+  /* ── N턴 되돌리기 (부활 아이템용) ────────────────────── */
+  const undoMultiple = useCallback((n: number) => {
+    if (isAnimating) return;
+    setHistory((prev) => {
+      if (prev.length === 0) return prev;
+      const steps  = Math.min(n, prev.length);
+      const target = prev[prev.length - steps];
+      setGameState({ ...target, graveyard: [] });
+      return prev.slice(0, prev.length - steps);
     });
   }, [isAnimating]);
 
@@ -223,6 +247,108 @@ export function useGame(stageConfig?: StageConfig, boardSize = 4, initialState?:
     });
   }, []);
 
+  /* ── 장애물 타일 제거 (remove_obstacle 카드) ──────────
+   * 지정한 ID의 장애물 타일 1개를 즉시 제거한다.
+   * ──────────────────────────────────────────────────── */
+  const removeObstacleTile = useCallback((id: string) => {
+    setGameState((prev) => {
+      const tile = (prev.activeTiles as Record<string, TileData>)[id];
+      if (!tile || !isObstacle(tile)) return prev;
+
+      const newActiveTiles = { ...(prev.activeTiles as Record<string, TileData>) };
+      delete newActiveTiles[id];
+
+      const newBoard = prev.board.map((row) =>
+        row.map((cell) => (cell?.id === id ? null : cell)),
+      );
+
+      return { ...prev, activeTiles: newActiveTiles, board: newBoard, graveyard: [] };
+    });
+  }, []);
+
+  /* ── 가시(thorn) 증식 — 10턴마다 인접 빈 칸 1개로 번짐 ── */
+  useEffect(() => {
+    const turnCount = (gameState.maxTurns ?? 0) - (gameState.turnsLeft ?? 0);
+    if (turnCount <= 0) return;
+
+    // 면역 잔여 턴이 있으면 카운트 감소 후 번짐 스킵
+    const immunity = gameState.thornImmunityTurns ?? 0;
+    if (immunity > 0) {
+      setGameState((prev) => ({
+        ...prev,
+        thornImmunityTurns: (prev.thornImmunityTurns ?? 1) - 1,
+      }));
+      return;
+    }
+
+    if (turnCount % 10 !== 0) return;
+
+    // thorn 또는 thorn_spread가 있는지 확인
+    const hasThorn = Object.values(
+      gameState.activeTiles as Record<string, TileData>,
+    ).some((t) => t.tileType === "thorn" || t.tileType === "thorn_spread");
+    if (!hasThorn) return;
+
+    setGameState((prev) => {
+      const size  = prev.boardSize ?? 4;
+      const board = prev.board.map((r) => [...r]);
+      const activeTiles = { ...prev.activeTiles } as Record<string, TileData>;
+
+      // 번질 수 있는 가시 후보(인접 빈 칸이 있는 것)만 수집
+      const candidates: { x: number; y: number; empties: { x: number; y: number }[] }[] = [];
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const t = board[y][x];
+          if (t?.tileType !== "thorn" && t?.tileType !== "thorn_spread") continue;
+          const empties = [
+            { x: x - 1, y }, { x: x + 1, y },
+            { x, y: y - 1 }, { x, y: y + 1 },
+          ].filter(
+            (p) =>
+              p.x >= 0 && p.x < size &&
+              p.y >= 0 && p.y < size &&
+              board[p.y][p.x] === null,
+          );
+          if (empties.length > 0) candidates.push({ x, y, empties });
+        }
+      }
+      if (candidates.length === 0) return prev;
+
+      // 후보 중 1개만 무작위 선택 → 인접 빈 칸 1곳으로 번짐
+      const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+      const target = chosen.empties[Math.floor(Math.random() * chosen.empties.length)];
+      const newThorn: TileData = {
+        id: generateId(),
+        value: 0,
+        x: target.x,
+        y: target.y,
+        tileType: "thorn_spread",
+        isNew: true,
+      };
+      board[target.y][target.x] = newThorn;
+      activeTiles[newThorn.id]  = newThorn;
+
+      return { ...prev, board, activeTiles };
+    });
+  }, [gameState.turnsLeft]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── 턴 연장 (턴 소진 종료 시 광고 보상) ─────────────────
+   * n턴 추가 + hasLost/lostByTurns 초기화
+   * ──────────────────────────────────────────────────── */
+  const extendTurns = useCallback((n: number) => {
+    setGameState((prev) => ({
+      ...prev,
+      turnsLeft:   (prev.turnsLeft ?? 0) + n,
+      hasLost:     false,
+      lostByTurns: false,
+    }));
+  }, []);
+
+  /* ── 가시 번짐 면역 설정 (대나무 카드) ───────────────────── */
+  const setThornImmunity = useCallback((turns: number) => {
+    setGameState((prev) => ({ ...prev, thornImmunityTurns: turns }));
+  }, []);
+
   /* ── 보드 청소 (상점 아이템: board_clean) ─────────────
    * 장애물을 유지하면서 숫자 타일 상위 4개만 남긴다.
    * ──────────────────────────────────────────────────── */
@@ -291,12 +417,17 @@ export function useGame(stageConfig?: StageConfig, boardSize = 4, initialState?:
     turnsLeft: gameState.turnsLeft ?? -1,
     maxTurns:  gameState.maxTurns  ?? -1,
     canUndo:          history.length > 0,
+    lostByTurns:      gameState.lostByTurns ?? false,
     moveCount,
     resetGame,
     handleMove,
     playOn,
     undoMove,
+    undoMultiple,
+    extendTurns,
+    setThornImmunity,
     removeTileById,
+    removeObstacleTile,
     spawnSprout,
     spawnTileAt,
     boardClean,

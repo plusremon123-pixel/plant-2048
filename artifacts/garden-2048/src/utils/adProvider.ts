@@ -2,15 +2,7 @@
  * adProvider.ts
  * AdMob SDK Wrapper — native(Capacitor) vs web 폴백 추상화
  *
- * 현재 상태: Mock 구현. `@capacitor-community/admob` 설치 후
- *             아래 TODO 블록을 활성화하면 실제 광고가 표시됨.
- *
- * 설치 명령:
- *   pnpm add @capacitor-community/admob
- *   pnpm exec cap sync android
- *
- * 이후 initAdmob() 이 앱 부팅 시 1회 호출되도록
- * App.tsx 최상단에서 await initAdmob() 추가
+ * 설치된 패키지: @capacitor-community/admob ^8.0.0
  * ============================================================ */
 
 import { Capacitor } from "@capacitor/core";
@@ -28,61 +20,138 @@ let initialized = false;
 export const initAdmob = async (): Promise<void> => {
   if (initialized || !isNative()) return;
   try {
-    // ── TODO: @capacitor-community/admob 설치 후 주석 해제 ───
-    // const { AdMob } = await import("@capacitor-community/admob");
-    // await AdMob.initialize({
-    //   testingDevices: [],
-    //   initializeForTesting: !import.meta.env.PROD,
-    // });
+    const { AdMob } = await import("@capacitor-community/admob");
+    await AdMob.initialize({
+      testingDevices: [],
+      initializeForTesting: !import.meta.env.PROD,
+    });
     initialized = true;
   } catch (e) {
     console.warn("[AdMob] init failed", e);
   }
 };
 
-/** 인터스티셜 광고 표시 — Promise<성공여부> */
+/** 인터스티셜 광고 표시 — 광고가 닫힐 때까지 기다린 뒤 resolve */
 export const showInterstitial = async (): Promise<boolean> => {
   if (!isNative()) return true; // web: mock
   try {
-    // ── TODO: @capacitor-community/admob 설치 후 주석 해제 ───
-    // const { AdMob } = await import("@capacitor-community/admob");
-    // await AdMob.prepareInterstitial({ adId: AD_IDS.INTERSTITIAL });
-    // await AdMob.showInterstitial();
-    void AD_IDS.INTERSTITIAL;  // 현재 unused 경고 방지
-    return true;
+    const { AdMob, InterstitialAdPluginEvents } =
+      await import("@capacitor-community/admob");
+
+    return new Promise<boolean>(async (resolve) => {
+      const handles: Array<{ remove: () => void }> = [];
+      const cleanup = () => handles.forEach((h) => h.remove());
+
+      handles.push(
+        await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
+          cleanup(); resolve(true);
+        }),
+      );
+      handles.push(
+        await AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, () => {
+          cleanup(); resolve(false);
+        }),
+      );
+      handles.push(
+        await AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, () => {
+          cleanup(); resolve(false);
+        }),
+      );
+      handles.push(
+        await AdMob.addListener(InterstitialAdPluginEvents.Loaded, async () => {
+          try {
+            await AdMob.showInterstitial();
+          } catch {
+            cleanup(); resolve(false);
+          }
+        }),
+      );
+
+      try {
+        await AdMob.prepareInterstitial({ adId: AD_IDS.INTERSTITIAL });
+      } catch {
+        cleanup(); resolve(false);
+      }
+    });
   } catch (e) {
     console.warn("[AdMob] interstitial failed", e);
     return false;
   }
 };
 
-/** 리워드 광고 표시 — Promise<시청완료여부> */
+/** 리워드 광고 표시 — 리워드 이벤트 수신 여부를 resolve */
 export const showRewarded = async (): Promise<boolean> => {
   if (!isNative()) return true; // web: mock = 항상 완료
   try {
-    // ── TODO: @capacitor-community/admob 설치 후 주석 해제 ───
-    // const { AdMob, RewardAdPluginEvents } = await import("@capacitor-community/admob");
-    // return new Promise<boolean>(async (resolve) => {
-    //   let rewarded = false;
-    //   const listener = await AdMob.addListener(
-    //     RewardAdPluginEvents.Rewarded,
-    //     () => { rewarded = true; }
-    //   );
-    //   const dismissListener = await AdMob.addListener(
-    //     RewardAdPluginEvents.Dismissed,
-    //     () => {
-    //       listener.remove();
-    //       dismissListener.remove();
-    //       resolve(rewarded);
-    //     }
-    //   );
-    //   await AdMob.prepareRewardVideoAd({ adId: AD_IDS.REWARDED });
-    //   await AdMob.showRewardVideoAd();
-    // });
-    void AD_IDS.REWARDED;
-    return true;
+    const { AdMob, RewardAdPluginEvents } =
+      await import("@capacitor-community/admob");
+
+    return new Promise<boolean>(async (resolve) => {
+      let rewarded = false;
+      const handles: Array<{ remove: () => void }> = [];
+      const cleanup = () => handles.forEach((h) => h.remove());
+
+      handles.push(
+        await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
+          rewarded = true;
+        }),
+      );
+      handles.push(
+        await AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
+          cleanup(); resolve(rewarded);
+        }),
+      );
+      handles.push(
+        await AdMob.addListener(RewardAdPluginEvents.FailedToLoad, () => {
+          cleanup(); resolve(false);
+        }),
+      );
+      handles.push(
+        await AdMob.addListener(RewardAdPluginEvents.FailedToShow, () => {
+          cleanup(); resolve(false);
+        }),
+      );
+
+      try {
+        await AdMob.prepareRewardVideoAd({ adId: AD_IDS.REWARDED });
+        await AdMob.showRewardVideoAd();
+      } catch {
+        cleanup(); resolve(false);
+      }
+    });
   } catch (e) {
     console.warn("[AdMob] rewarded failed", e);
     return false;
+  }
+};
+
+/** 배너 광고 표시 — 네이티브 오버레이로 표시됨 */
+export const showBanner = async (position: "top" | "bottom"): Promise<void> => {
+  if (!isNative()) return;
+  try {
+    const { AdMob, BannerAdSize, BannerAdPosition } =
+      await import("@capacitor-community/admob");
+    await AdMob.showBanner({
+      adId:     AD_IDS.BANNER,
+      adSize:   BannerAdSize.ADAPTIVE_BANNER,
+      position: position === "top"
+        ? BannerAdPosition.TOP_CENTER
+        : BannerAdPosition.BOTTOM_CENTER,
+      margin:   0,
+      isTesting: !import.meta.env.PROD,
+    });
+  } catch (e) {
+    console.warn("[AdMob] banner failed", e);
+  }
+};
+
+/** 배너 광고 제거 */
+export const removeBanner = async (): Promise<void> => {
+  if (!isNative()) return;
+  try {
+    const { AdMob } = await import("@capacitor-community/admob");
+    await AdMob.removeBanner();
+  } catch (e) {
+    console.warn("[AdMob] remove banner failed", e);
   }
 };

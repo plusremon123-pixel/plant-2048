@@ -25,6 +25,9 @@ const isNative = () => {
   catch { return false; }
 };
 
+/** 외부에서 네이티브 여부 확인 (Game.tsx 등) */
+export const isNativePlatform = isNative;
+
 /**
  * 리워드 광고를 시청한다.
  * - 네이티브: AdMob 리워드 광고 표시

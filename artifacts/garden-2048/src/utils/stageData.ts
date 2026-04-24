@@ -3,11 +3,10 @@
  * 스테이지 절차적 생성 시스템 (1 ~ 1000스테이지)
  *
  * 설계 원칙:
- *   - 난이도는 장애물보다 목표값·턴 제한으로 먼저 조정
- *   - 장애물은 전략 요소, 이동을 막는 장치가 아님
- *   - 10판 단위 완급 조절 (쉬움·보통·보통·어려움·보통·보통·쉬움·어려움·보통·숨고르기)
- *   - 1~30: 장애물 없음
- *   - 31+: 가장자리/모서리 배치, 중앙 4칸 금지, 2×2 블로킹 금지
+ *   - 목표 타일 최대 2048 고정 (이후는 턴 수 감소로 난이도 상승)
+ *   - 장애물 3종: soil(영구) / rock(3HP 파괴) / thorn(증식·10턴)
+ *   - 10판 단위 완급 조절 (리듬 인덱스 9 = 보스슬롯 = 장애물 0)
+ *   - thorn 등장 시(501+) boardSize = 6
  * ============================================================ */
 
 import {
@@ -28,7 +27,7 @@ export interface StageGoal {
 export interface InitialTile {
   x: number;
   y: number;
-  tileType: "soil" | "thorn";
+  tileType: "soil" | "thorn" | "rock";
 }
 
 export interface StageConfig {
@@ -37,61 +36,52 @@ export interface StageConfig {
   maxTurns:     number;
   goal:         StageGoal;
   initialTiles: InitialTile[];
+  boardSize:    4 | 5 | 6;   // thorn 등장 시 6
   spawnRate?:   number;
 }
 
 /* ============================================================
- * 장애물 위치 풀
+ * 장애물 위치 풀 (4×4 보드 기준)
  *
- * 4×4 보드 좌표 (x: 열, y: 행, 0 기준):
+ * 좌표 (x: 열, y: 행, 0-based):
  *   (0,0)(1,0)(2,0)(3,0)
  *   (0,1)(1,1)(2,1)(3,1)
  *   (0,2)(1,2)(2,2)(3,2)
  *   (0,3)(1,3)(2,3)(3,3)
  *
  * 중앙 4칸 (배치 금지): (1,1)(2,1)(1,2)(2,2)
- * 우선 배치: 모서리·하단·가장자리
  * ============================================================ */
 
 type Pos = { x: number; y: number };
 
-/** 단일 장애물용 위치 풀 — 모서리·하단·가장자리 10곳 */
 const SINGLE_POOL: Pos[] = [
-  { x: 0, y: 3 }, // 하단 좌
-  { x: 3, y: 3 }, // 하단 우
-  { x: 1, y: 3 }, // 하단 중좌
-  { x: 2, y: 3 }, // 하단 중우
-  { x: 0, y: 0 }, // 상단 좌
-  { x: 3, y: 0 }, // 상단 우
-  { x: 0, y: 2 }, // 좌 가장자리 하
-  { x: 3, y: 2 }, // 우 가장자리 하
-  { x: 0, y: 1 }, // 좌 가장자리 상
-  { x: 3, y: 1 }, // 우 가장자리 상
+  { x: 0, y: 3 },
+  { x: 3, y: 3 },
+  { x: 1, y: 3 },
+  { x: 2, y: 3 },
+  { x: 0, y: 0 },
+  { x: 3, y: 0 },
+  { x: 0, y: 2 },
+  { x: 3, y: 2 },
+  { x: 0, y: 1 },
+  { x: 3, y: 1 },
 ];
 
-/**
- * 이중 장애물용 위치 쌍 풀
- * 규칙: 중앙 4칸 제외, 2×2 블로킹 없음, 서로 대각 또는 충분히 이격
- */
 const DOUBLE_POOL: [Pos, Pos][] = [
-  [{ x: 0, y: 3 }, { x: 3, y: 3 }], // 하단 양끝
-  [{ x: 0, y: 0 }, { x: 3, y: 3 }], // 대각 (↖↘)
-  [{ x: 3, y: 0 }, { x: 0, y: 3 }], // 대각 (↗↙)
-  [{ x: 0, y: 3 }, { x: 3, y: 1 }], // 하단좌 + 우가장자리상
-  [{ x: 3, y: 3 }, { x: 0, y: 1 }], // 하단우 + 좌가장자리상
-  [{ x: 1, y: 3 }, { x: 3, y: 0 }], // 하단중 + 상단우
-  [{ x: 2, y: 3 }, { x: 0, y: 0 }], // 하단중 + 상단좌
-  [{ x: 0, y: 2 }, { x: 3, y: 3 }], // 좌가장자리하 + 하단우
-  [{ x: 3, y: 2 }, { x: 0, y: 3 }], // 우가장자리하 + 하단좌
-  [{ x: 0, y: 0 }, { x: 2, y: 3 }], // 상단좌 + 하단중
-  [{ x: 3, y: 0 }, { x: 1, y: 3 }], // 상단우 + 하단중
-  [{ x: 0, y: 1 }, { x: 3, y: 3 }], // 좌가장자리상 + 하단우
+  [{ x: 0, y: 3 }, { x: 3, y: 3 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 3 }],
+  [{ x: 3, y: 0 }, { x: 0, y: 3 }],
+  [{ x: 0, y: 3 }, { x: 3, y: 1 }],
+  [{ x: 3, y: 3 }, { x: 0, y: 1 }],
+  [{ x: 1, y: 3 }, { x: 3, y: 0 }],
+  [{ x: 2, y: 3 }, { x: 0, y: 0 }],
+  [{ x: 0, y: 2 }, { x: 3, y: 3 }],
+  [{ x: 3, y: 2 }, { x: 0, y: 3 }],
+  [{ x: 0, y: 0 }, { x: 2, y: 3 }],
+  [{ x: 3, y: 0 }, { x: 1, y: 3 }],
+  [{ x: 0, y: 1 }, { x: 3, y: 3 }],
 ];
 
-/**
- * 삼중 장애물용 위치 세트 풀
- * 규칙: 2×2 블로킹 없음, 넓게 분산
- */
 const TRIPLE_POOL: [Pos, Pos, Pos][] = [
   [{ x: 0, y: 3 }, { x: 3, y: 3 }, { x: 0, y: 0 }],
   [{ x: 0, y: 3 }, { x: 3, y: 3 }, { x: 3, y: 0 }],
@@ -105,8 +95,32 @@ const TRIPLE_POOL: [Pos, Pos, Pos][] = [
   [{ x: 3, y: 3 }, { x: 0, y: 2 }, { x: 2, y: 0 }],
 ];
 
+const QUAD_POOL: [Pos, Pos, Pos, Pos][] = [
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 3 }, { x: 3, y: 3 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 3 }, { x: 1, y: 3 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 3 }, { x: 2, y: 3 }],
+  [{ x: 0, y: 3 }, { x: 3, y: 3 }, { x: 0, y: 0 }, { x: 3, y: 1 }],
+  [{ x: 0, y: 3 }, { x: 3, y: 3 }, { x: 3, y: 0 }, { x: 0, y: 1 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 2 }, { x: 3, y: 2 }],
+  [{ x: 0, y: 3 }, { x: 3, y: 3 }, { x: 0, y: 1 }, { x: 3, y: 1 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 3 }, { x: 1, y: 3 }, { x: 3, y: 1 }],
+  [{ x: 3, y: 0 }, { x: 0, y: 3 }, { x: 2, y: 3 }, { x: 0, y: 1 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 2, y: 3 }, { x: 0, y: 2 }],
+];
+
+const QUINT_POOL: [Pos, Pos, Pos, Pos, Pos][] = [
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 3 }, { x: 3, y: 3 }, { x: 1, y: 3 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 3 }, { x: 3, y: 3 }, { x: 2, y: 3 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 3 }, { x: 3, y: 3 }, { x: 0, y: 1 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 3 }, { x: 3, y: 3 }, { x: 3, y: 1 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 3 }, { x: 0, y: 1 }, { x: 1, y: 3 }],
+  [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 3 }, { x: 3, y: 1 }, { x: 2, y: 3 }],
+  [{ x: 0, y: 3 }, { x: 3, y: 3 }, { x: 0, y: 0 }, { x: 0, y: 2 }, { x: 3, y: 1 }],
+  [{ x: 0, y: 3 }, { x: 3, y: 3 }, { x: 3, y: 0 }, { x: 3, y: 2 }, { x: 0, y: 1 }],
+];
+
 /* ============================================================
- * 스테이지 이름 풀 (식물/자연 테마, 60개 → 모듈러 순환)
+ * 스테이지 이름 풀 (60개, 모듈러 순환)
  * ============================================================ */
 const STAGE_NAMES: string[] = [
   "씨앗의 시작",   "새싹 한 줄기",  "흙 속에서",    "첫 뿌리",      "햇살 속으로",
@@ -124,112 +138,102 @@ const STAGE_NAMES: string[] = [
 ];
 
 /* ============================================================
- * 목표값 티어 (2의 거듭제곱)
+ * 목표값 티어 — 최대 2048(tier 11)로 고정
  * ============================================================ */
 function getGoalTier(id: number): number {
-  if (id <=  5) return 6;   // 64
-  if (id <= 15) return 7;   // 128
-  if (id <= 30) return 8;   // 256
-  if (id <= 55) return 9;   // 512
-  if (id <= 90) return 10;  // 1024
-  if (id <= 150) return 11; // 2048
-  if (id <= 250) return 12; // 4096
-  if (id <= 400) return 13; // 8192
-  if (id <= 600) return 14; // 16384
-  if (id <= 850) return 15; // 32768
-  return 16;                // 65536
+  if (id <=  5) return 6;    // 64
+  if (id <= 15) return 7;    // 128
+  if (id <= 30) return 8;    // 256
+  if (id <= 250) return 9;   // 512  (Spring 시즌과 일치)
+  if (id <= 500) return 10;  // 1024 (Summer 시즌과 일치)
+  return 11;                 // 2048 — 상한 고정
 }
 
-/** 티어별 기본 턴 수 */
+/** 티어별 기본 턴 수 (tier 11 = 2048 구간은 getBaseTurns로 별도 처리) */
 const BASE_TURNS: Record<number, number> = {
-  6:  85,   // 목표 64  — 스테이지 1~5
-  7:  140,  // 목표 128 — 스테이지 6~15
-  8:  200,  // 목표 256 — 스테이지 16~30
-  9:  270,  // 목표 512 — 스테이지 31~55
-  10: 360,  // 목표 1024— 스테이지 56~90
-  11: 470,  // 목표 2048— 스테이지 91~150
-  12: 610,  // 목표 4096
-  13: 780,  // 목표 8192
-  14: 980,  // 목표 16384
-  15: 1200, // 목표 32768
-  16: 1480, // 목표 65536
+  6:  85,
+  7:  140,
+  8:  200,
+  9:  270,
+  10: 360,
 };
+
+/**
+ * 기준 턴 수 결정.
+ * tier 11(2048) 구간은 스테이지가 높을수록 허용 턴 감소 → 난이도 상승.
+ */
+function getBaseTurns(id: number, tier: number): number {
+  if (tier < 11) return BASE_TURNS[tier] ?? 360;
+  // tier 11 (2048, st 501~1000): 점진 감소
+  if (id <= 600) return 470;
+  if (id <= 700) return 430;
+  if (id <= 800) return 380;
+  if (id <= 900) return 320;
+  return 260;
+}
 
 /**
  * 10판 주기 완급 조절 계수
  * 인덱스: (id-1) % 10
- * 0=쉬움, 1=보통, 2=보통, 3=어려움, 4=보통,
- * 5=보통, 6=쉬움,  7=어려움, 8=보통, 9=숨고르기
+ * 0=쉬움·1.10 / 1=보통·1.00 / 2=보통·0.95 / 3=어려움·0.85 /
+ * 4=보통·1.00 / 5=보통·0.90 / 6=쉬움·1.05 / 7=어려움·0.80 /
+ * 8=보통·0.95 / 9=보스슬롯·1.15
  */
 const RHYTHM: number[] = [1.10, 1.00, 0.95, 0.85, 1.00, 0.90, 1.05, 0.80, 0.95, 1.15];
 
-/** 10판 주기에서 이 판이 "어려운 판"인지 (장애물 수 +1 허용 구간) */
-function isHardSlot(id: number): boolean {
-  const pos = (id - 1) % 10;
-  return pos === 3 || pos === 7; // 4번·8번째 판
-}
-
-/** 10판 주기에서 이 판이 보스급인지 (501+ 에서만 의미) */
-function isBossSlot(id: number): boolean {
-  const pos = (id - 1) % 10;
-  return pos === 9; // 10번째 판 (숨고르기이지만 501+에서는 챌린지)
-}
+function getRhythmIdx(id: number): number { return (id - 1) % 10; }
+function isHardSlot(id: number):    boolean { const r = getRhythmIdx(id); return r === 3 || r === 7; }
+function isBossSlot(id: number):    boolean { return getRhythmIdx(id) === 9; }
+function isEasySlot(id: number):    boolean { const r = getRhythmIdx(id); return r === 0 || r === 6; }
 
 /* ============================================================
- * 구간별 장애물 수
+ * 구간별 장애물 수 — 리듬 기반 + 보스슬롯 = 항상 0
  * ============================================================ */
 function getObstacleCount(id: number): number {
+  const rhythmIdx = getRhythmIdx(id);
+  if (isBossSlot(id)) return 0;  // 보스슬롯: 모든 구간에서 숨 고르기
+
+  const hard = isHardSlot(id);
+  const easy = isEasySlot(id);
+
   if (id <= 30)  return 0;
-
-  if (id <= 80)  return 1;
-
-  if (id <= 150) {
-    // 1개 중심, 어려운 슬롯만 2개
-    return isHardSlot(id) ? 2 : 1;
-  }
-
-  if (id <= 300) {
-    // 1~2개: 어려운 슬롯 2개, 나머지 1개
-    return isHardSlot(id) ? 2 : 1;
-  }
-
-  if (id <= 500) {
-    // 2개 중심, 어려운 슬롯만 3개
-    return isHardSlot(id) ? 3 : 2;
-  }
-
-  if (id <= 700) {
-    // 2개 중심, 3개는 제한적 (어려운 슬롯만)
-    return isHardSlot(id) ? 3 : 2;
-  }
-
-  if (id <= 850) {
-    // 2~3개: 기본 2개, 어려운·보스 슬롯 3개
-    return (isHardSlot(id) || isBossSlot(id)) ? 3 : 2;
-  }
-
-  // 851~1000: 2개 중심, 3개는 챌린지/보스급만
-  return isBossSlot(id) ? 3 : 2;
+  if (id <= 80)  return hard ? 2 : easy ? 0 : 1;
+  if (id <= 250) return hard ? 3 : easy ? 1 : 2;
+  if (id <= 500) return hard ? 4 : easy ? 1 : 2;
+  return         hard ? 5 : easy ? 2 : 3;  // 501~1000
 }
 
 /* ============================================================
- * 장애물 타입 결정
- * thorn(가시)은 고난이도 구간에서만 등장
+ * 장애물 타입 결정 — 3종 분기
+ *
+ * soil(흙)  : 영구 블로커, 초반 위주 / easy 슬롯에 간헐적 등장
+ * rock(바위): 3HP 내구, 중반부터 주력
+ * thorn(가시): 증식형, 501 이후 등장
  * ============================================================ */
-function getObstacleType(id: number, posInSet: number): "soil" | "thorn" {
-  if (id <= 100)  return "soil";
-  if (id <= 250)  return posInSet === 0 ? "soil" : "soil"; // 모두 soil
-  // 251+: 첫 번째는 soil, 추가 장애물은 thorn 가능
-  if (id <= 500)  return posInSet === 0 ? "soil" : (isHardSlot(id) ? "thorn" : "soil");
-  return posInSet === 0 ? "soil" : "thorn";
+function getObstacleType(
+  id: number,
+  posInSet: number,
+): "soil" | "rock" | "thorn" {
+  const easy = isEasySlot(id);
+
+  // 1~150: soil만
+  if (id <= 150) return "soil";
+
+  // 151~500: rock 위주, easy 슬롯의 첫 번째 위치만 soil
+  if (id <= 500) {
+    if (easy && posInSet === 0) return "soil";
+    return "rock";
+  }
+
+  // 501~: thorn + rock 위주, easy 슬롯 일부에만 soil
+  if (easy && posInSet === 0) return "soil";
+  return posInSet === 0 ? "rock" : "thorn";
 }
 
 /* ============================================================
  * 결정적(deterministic) 인덱스 선택
- * 스테이지 ID로부터 풀 인덱스를 균일하게 분산
  * ============================================================ */
 function pickIdx(id: number, poolLen: number, salt: number = 0): number {
-  // 간단한 선형 혼합
   return ((id * 31 + salt * 17) >>> 0) % poolLen;
 }
 
@@ -237,13 +241,13 @@ function pickIdx(id: number, poolLen: number, salt: number = 0): number {
  * 스테이지 생성
  * ============================================================ */
 function generateStage(id: number): StageConfig {
-  const tier       = getGoalTier(id);
-  const baseTurns  = BASE_TURNS[tier] ?? 600;
-  const rhythm     = RHYTHM[(id - 1) % 10];
-  const maxTurns   = Math.round(baseTurns * rhythm);
+  const tier        = getGoalTier(id);
+  const baseTurns   = getBaseTurns(id, tier);
+  const rhythm      = RHYTHM[getRhythmIdx(id)];
+  const maxTurns    = Math.round(baseTurns * rhythm);
   const targetValue = Math.pow(2, tier);
-  const name       = STAGE_NAMES[(id - 1) % STAGE_NAMES.length];
-  const count      = getObstacleCount(id);
+  const name        = STAGE_NAMES[(id - 1) % STAGE_NAMES.length];
+  const count       = getObstacleCount(id);
 
   const initialTiles: InitialTile[] = [];
 
@@ -260,9 +264,28 @@ function generateStage(id: number): StageConfig {
     set.forEach((pos, i) =>
       initialTiles.push({ x: pos.x, y: pos.y, tileType: getObstacleType(id, i) }),
     );
+  } else if (count === 4) {
+    const set = QUAD_POOL[pickIdx(id, QUAD_POOL.length, 3)];
+    set.forEach((pos, i) =>
+      initialTiles.push({ x: pos.x, y: pos.y, tileType: getObstacleType(id, i) }),
+    );
+  } else if (count === 5) {
+    const set = QUINT_POOL[pickIdx(id, QUINT_POOL.length, 4)];
+    set.forEach((pos, i) =>
+      initialTiles.push({ x: pos.x, y: pos.y, tileType: getObstacleType(id, i) }),
+    );
   }
 
-  return { id, name, maxTurns, goal: { type: "reachTile", targetValue }, initialTiles };
+  // thorn 포함 여부에 따라 보드 크기 결정
+  const hasThorn  = initialTiles.some((t) => t.tileType === "thorn");
+  const boardSize: 4 | 5 | 6 = hasThorn ? 6 : 4;
+
+  return {
+    id, name, maxTurns,
+    goal: { type: "reachTile", targetValue },
+    initialTiles,
+    boardSize,
+  };
 }
 
 /* ============================================================
@@ -277,10 +300,11 @@ export const getStageConfig = (stageId: number): StageConfig | null => {
 
 /**
  * 스테이지 초기 GameState 생성.
- * 장애물을 먼저 배치한 뒤 랜덤 숫자 타일 2개 추가.
+ * boardSize에 맞는 보드를 생성하고 장애물 + 숫자 타일 2개 배치.
  */
 export const initializeStage = (config: StageConfig): GameState => {
-  const board = createEmptyBoard();
+  const size  = config.boardSize ?? 4;
+  const board = createEmptyBoard(size);
   const activeTiles: Record<string, TileData> = {};
 
   /* 장애물 배치 */
@@ -291,6 +315,7 @@ export const initializeStage = (config: StageConfig): GameState => {
       x:        it.x,
       y:        it.y,
       tileType: it.tileType,
+      hp:       it.tileType === "rock" ? 3 : undefined,
     };
     board[it.y][it.x] = tile;
     activeTiles[tile.id] = tile;
@@ -316,12 +341,15 @@ export const initializeStage = (config: StageConfig): GameState => {
   return {
     board,
     activeTiles,
-    graveyard:  [],
-    score:      0,
-    hasWon:     false,
-    hasLost:    false,
-    turnsLeft:  config.maxTurns,
-    maxTurns:   config.maxTurns,
-    goalValue:  config.goal.targetValue,
+    graveyard:           [],
+    score:               0,
+    hasWon:              false,
+    hasLost:             false,
+    lostByTurns:         false,
+    turnsLeft:           config.maxTurns,
+    maxTurns:            config.maxTurns,
+    goalValue:           config.goal.targetValue,
+    boardSize:           size,
+    thornImmunityTurns:  0,
   };
 };

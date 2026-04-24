@@ -58,7 +58,7 @@ export function Header({ score, bestScore, season, onReset, onHome, onShop }: He
       </div>
 
       {/* ── 행 2: 점수 ──────────────────────────────────── */}
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-stretch gap-3">
         <ScoreBox label={t("game.score")}     score={score}     theme={theme} />
         <ScoreBox label={t("game.bestScore")} score={bestScore} theme={theme} />
       </div>
@@ -70,17 +70,17 @@ export function Header({ score, bestScore, season, onReset, onHome, onShop }: He
 function ScoreBox({ label, score, theme }: { label: string; score: number; theme: SeasonTheme }) {
   return (
     <div
-      className="px-5 py-2 rounded-xl flex flex-col items-center min-w-[100px]"
+      className="flex-1 px-4 py-3 rounded-2xl flex flex-col items-center"
       style={{ background: theme.panelColor }}
     >
       <span
-        className="text-[10px] font-bold uppercase tracking-wider mb-0.5"
+        className="text-[11px] font-bold tracking-wide mb-1"
         style={{ color: theme.textMuted }}
       >
         {label}
       </span>
       <span
-        className="text-xl font-display font-bold leading-none"
+        className="text-2xl font-black leading-none tabular-nums"
         style={{ color: theme.textPrimary }}
       >
         {score.toLocaleString()}

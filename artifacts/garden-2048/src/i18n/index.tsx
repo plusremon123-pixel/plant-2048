@@ -32,7 +32,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const setLang = (l: Lang) => { localStorage.setItem(STORAGE_KEY, l); setLangState(l); };
   const t = (key: string, vars?: Record<string, string | number>): string => {
     let str = lookup(translations[lang] as Record<string, unknown>, key);
-    if (vars) Object.entries(vars).forEach(([k, v]) => { str = str.replace(`{{${k}}}`, String(v)); });
+    if (vars) Object.entries(vars).forEach(([k, v]) => {
+      const re = new RegExp(`\\{\\{${k}\\}\\}`, "g");
+      str = str.replace(re, String(v));
+    });
     return str;
   };
   return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;

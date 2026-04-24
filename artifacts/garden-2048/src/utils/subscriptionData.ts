@@ -4,10 +4,11 @@
  * ============================================================ */
 
 export interface SubscriptionState {
-  isPremium:   boolean;       // 유료 구독 활성
-  trialUsed:   boolean;       // 무료 체험 사용 이력
-  trialActive: boolean;       // 현재 체험 진행 중
-  trialExpiry: number | null; // 만료 타임스탬프 (ms)
+  isPremium:       boolean;       // 유료 구독 활성
+  trialUsed:       boolean;       // 무료 체험 사용 이력
+  trialActive:     boolean;       // 현재 체험 진행 중
+  trialExpiry:     number | null; // 만료 타임스탬프 (ms)
+  premiumStartDate?: number | null; // 유료 구독 시작일 (ms)
 }
 
 const KEY = "plant2048_subscription";
@@ -69,10 +70,11 @@ export function expireTrial(current: SubscriptionState): SubscriptionState {
 /** 유료 구독 활성화 */
 export function activatePremium(): SubscriptionState {
   const s: SubscriptionState = {
-    isPremium:   true,
-    trialUsed:   true,
-    trialActive: false,
-    trialExpiry: null,
+    isPremium:        true,
+    trialUsed:        true,
+    trialActive:      false,
+    trialExpiry:      null,
+    premiumStartDate: Date.now(),
   };
   saveSubscription(s);
   return s;
