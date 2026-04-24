@@ -227,7 +227,7 @@ export function LoadoutModal({
                       <button
                         onClick={() => !isLocked && onSelectCard(card.id)}
                         disabled={isLocked}
-                        className="w-full aspect-square flex flex-col items-center justify-center gap-1 rounded-2xl border-2 transition-all active:scale-95 p-2.5"
+                        className="w-full aspect-square flex flex-col items-center justify-center gap-1 rounded-2xl border-2 transition-all active:scale-95 p-2"
                         style={isLocked
                           ? {
                               borderColor: theme.borderColor,
@@ -247,7 +247,7 @@ export function LoadoutModal({
                         }
                       >
                         <span
-                          className="text-xl leading-none"
+                          className="text-3xl leading-none"
                           style={isGoldenSunflower
                             ? { filter: "sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.15) drop-shadow(0 0 3px #f59e0b)" }
                             : undefined
@@ -303,13 +303,13 @@ export function LoadoutModal({
                   <div key={item.id} className="relative">
                     <button
                       onClick={() => onToggleItem(item.id)}
-                      className="w-full aspect-square flex flex-col items-center justify-center gap-1 rounded-2xl border-2 transition-all active:scale-95 p-2.5"
+                      className="w-full aspect-square flex flex-col items-center justify-center gap-1 rounded-2xl border-2 transition-all active:scale-95 p-2"
                       style={selected
                         ? { borderColor: theme.btnPrimary, background: theme.btnPrimary + "15" }
                         : { borderColor: theme.borderColor, background: theme.panelColor }
                       }
                     >
-                      <span className="text-xl leading-none">{item.emoji}</span>
+                      <span className="text-3xl leading-none">{item.emoji}</span>
                       <span
                         className="text-xs font-bold leading-tight text-center flex items-center justify-center"
                         style={{
