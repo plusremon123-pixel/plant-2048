@@ -287,6 +287,7 @@ export default function App() {
           <button
             onClick={() => {
               localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify({ coins: 0, clearedLevel: 0 }));
+              localStorage.removeItem("plant2048_subscription");
               window.location.reload();
             }}
             style={{
