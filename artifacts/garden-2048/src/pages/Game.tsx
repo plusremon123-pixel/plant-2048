@@ -38,7 +38,7 @@ import {
   isNativePlatform,
 } from "@/utils/adService";
 import { getStageConfig } from "@/utils/stageData";
-import { isObstacle } from "@/utils/gameUtils";
+import { isObstacle, type TileData } from "@/utils/gameUtils";
 import {
   SubscriptionState,
   isPremiumActive,
@@ -335,10 +335,30 @@ export default function Game({
       toggleCardActive();
       setTileSelectCb(null);
       setEmptyCellSelectCb(null);
+      setSelectingObstacle(false);
+      setIsBambooMode(false);
       return;
     }
 
     const cardDef = CARDS.find((c) => c.id === card.id)!;
+
+    /* ── 대나무 카드: 장애물 선택 → 제거 + 번짐 5턴 면역 ─── */
+    if (card.id === "bamboo") {
+      const hasObstacles = Object.values(activeTiles as Record<string, TileData>)
+        .some((t) => isObstacle(t));
+      if (hasObstacles) {
+        toggleCardActive();
+        setSelectingObstacle(true);
+        setIsBambooMode(true);
+      } else {
+        /* 장애물 없으면 즉시 면역만 적용 */
+        setThornImmunity(5);
+        handleConsumeCard();
+        updateMission("use_item");
+        updateWeeklyMission("use_item_5");
+      }
+      return;
+    }
 
     switch (cardDef.targetMode) {
       case "tile":
@@ -404,11 +424,6 @@ export default function Game({
           }
           case "lotus": {
             sortedTiles.slice(0, 3).forEach((t) => removeTileById(t.id));
-            break;
-          }
-          case "bamboo": {
-            // 가시 번짐 5턴 면역 설정
-            setThornImmunity(5);
             break;
           }
           case "dandelion": {
@@ -669,8 +684,12 @@ export default function Game({
   const [selectingTile, setSelectingTile]           = useState(false);
   const [pendingRemoveTile, setPendingRemoveTile]   = useState<{ id: string; value: number } | null>(null);
 
-  /* ── 장애물 선택 제거 상태 (remove_obstacle 아이템) ──── */
+  /* ── 장애물 선택 제거 상태 ─────────────────────────────
+   *  isBambooMode=true  → 대나무 카드 사용 (카드 소비 + 면역 부여)
+   *  isBambooMode=false → remove_obstacle 아이템 사용 (인벤토리 소비)
+   * ──────────────────────────────────────────────────── */
   const [selectingObstacle, setSelectingObstacle]   = useState(false);
+  const [isBambooMode,      setIsBambooMode]         = useState(false);
 
   /* ── 인벤토리바 구매 확인 팝업 상태 (portal 렌더용) ───── */
   const [pendingBuy, setPendingBuy] = useState<ShopItem | null>(null);
@@ -726,14 +745,25 @@ export default function Game({
       tileSelectCb(tileId);
       setTileSelectCb(null);
     } else if (selectingObstacle) {
-      /* 장애물 선택 모드: 클릭한 타일이 장애물이면 제거 */
+      /* 장애물 선택 모드: 클릭한 타일이 장애물이면 처리 */
       const tile = (activeTiles as Record<string, { id: string; tileType?: string }>)[tileId];
       if (tile && isObstacle(tile as Parameters<typeof isObstacle>[0])) {
-        const consumed = useFromInventory("remove_obstacle");
-        if (consumed) {
+        if (isBambooMode) {
+          /* 대나무 카드: 장애물 제거 + 번짐 5턴 면역 + 카드 소비 */
           removeObstacleTile(tileId);
+          setThornImmunity(5);
+          handleConsumeCard();
           updateMission("use_item");
           updateWeeklyMission("use_item_5");
+          setIsBambooMode(false);
+        } else {
+          /* remove_obstacle 아이템: 인벤토리 소비 */
+          const consumed = useFromInventory("remove_obstacle");
+          if (consumed) {
+            removeObstacleTile(tileId);
+            updateMission("use_item");
+            updateWeeklyMission("use_item_5");
+          }
         }
         setSelectingObstacle(false);
       }
