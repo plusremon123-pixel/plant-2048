@@ -99,7 +99,7 @@ interface MenuItemDef {
 /* ── 계절별 메뉴 카드 색상 ────────────────────────────────── */
 const SEASON_MENU_PALETTE: Record<Season, { bg: string; text: string; shadow: string }> = {
   spring: { bg: "#F7EED8", text: "#5A3210", shadow: "rgba(90,50,16,0.50)"  },
-  summer: { bg: "#FFE8A0", text: "#7A3800", shadow: "rgba(180,80,0,0.60)"  },
+  summer: { bg: "#C5E4F5", text: "#0E3A58", shadow: "rgba(14,58,88,0.55)"  },
   autumn: { bg: "#F5C898", text: "#6B1C00", shadow: "rgba(130,35,0,0.60)"  },
   winter: { bg: "#BDD5EF", text: "#122E62", shadow: "rgba(18,46,98,0.60)"  },
 };
