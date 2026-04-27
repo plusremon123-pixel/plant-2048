@@ -285,7 +285,7 @@ function generateStage(id: number): StageConfig {
    * - 4×4(16칸) → 6×6(36칸): 셀이 2.25배 → 합치기까지 이동 횟수 비례 증가
    * - 무궁화 카드로 가시를 제거하는 턴 비용까지 고려해 ×2.0 적용
    */
-  const finalMaxTurns = hasThorn ? Math.round(maxTurns * 2.0) : maxTurns;
+  const finalMaxTurns = hasThorn ? Math.round(maxTurns * 3.0) : maxTurns;
 
   return {
     id, name, maxTurns: finalMaxTurns,
