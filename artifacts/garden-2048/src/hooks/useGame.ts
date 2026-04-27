@@ -283,10 +283,10 @@ export function useGame(
 
     if (turnCount % 10 !== 0) return;
 
-    // thorn 또는 thorn_spread가 있는지 확인
+    // 원본 thorn만 번짐 소스: thorn_spread는 퍼지지 않음
     const hasThorn = Object.values(
       gameState.activeTiles as Record<string, TileData>,
-    ).some((t) => t.tileType === "thorn" || t.tileType === "thorn_spread");
+    ).some((t) => t.tileType === "thorn");
     if (!hasThorn) return;
 
     setGameState((prev) => {
@@ -294,12 +294,12 @@ export function useGame(
       const board = prev.board.map((r) => [...r]);
       const activeTiles = { ...prev.activeTiles } as Record<string, TileData>;
 
-      // 번질 수 있는 가시 후보(인접 빈 칸이 있는 것)만 수집
+      // 원본 thorn만 번짐 후보로 수집 (thorn_spread는 소스 아님)
       const candidates: { x: number; y: number; empties: { x: number; y: number }[] }[] = [];
       for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
           const t = board[y][x];
-          if (t?.tileType !== "thorn" && t?.tileType !== "thorn_spread") continue;
+          if (t?.tileType !== "thorn") continue;
           const empties = [
             { x: x - 1, y }, { x: x + 1, y },
             { x, y: y - 1 }, { x, y: y + 1 },
