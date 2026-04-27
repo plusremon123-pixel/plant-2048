@@ -283,10 +283,9 @@ function generateStage(id: number): StageConfig {
   /**
    * 6×6 보드 턴 수 보정
    * - 4×4(16칸) → 6×6(36칸): 셀이 2.25배 → 합치기까지 이동 횟수 비례 증가
-   * - 보드 크기 비율(2.25)의 약 2/3 수준인 ×1.5 를 적용해
-   *   플레이 가능하면서 적절한 난이도를 유지
+   * - 무궁화 카드로 가시를 제거하는 턴 비용까지 고려해 ×2.0 적용
    */
-  const finalMaxTurns = hasThorn ? Math.round(maxTurns * 1.5) : maxTurns;
+  const finalMaxTurns = hasThorn ? Math.round(maxTurns * 2.0) : maxTurns;
 
   return {
     id, name, maxTurns: finalMaxTurns,
