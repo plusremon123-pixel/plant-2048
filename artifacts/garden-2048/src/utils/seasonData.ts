@@ -7,16 +7,26 @@
 export type Season = "spring" | "summer" | "autumn" | "winter";
 
 /**
- * stage 번호 → 계절
- *   1  ~ 260  = spring   (260 클리어 시 전환)
- *   261 ~ 500  = summer   (500 클리어 시 전환)
- *   501 ~ 760  = autumn   (760 클리어 시 전환)
+ * stage 번호 → 계절 (1000판마다 재순환)
+ *
+ * 1주기 (1 ~ 1000):
+ *   1   ~ 260  = spring
+ *   261 ~ 500  = summer
+ *   501 ~ 760  = autumn
  *   761 ~ 1000 = winter
+ *
+ * 2주기 (1001 ~ 2000): 동일 경계를 1000 단위로 반복
+ *   1001 ~ 1260 = spring
+ *   1261 ~ 1500 = summer
+ *   1501 ~ 1760 = autumn
+ *   1761 ~ 2000 = winter
  */
 export function getSeason(stage: number): Season {
-  if (stage <= 260) return "spring";
-  if (stage <= 500) return "summer";
-  if (stage <= 760) return "autumn";
+  /* 1001+ 는 (stage-1001) % 1000 + 1 로 1주기 기준값으로 변환 */
+  const s = stage > 1000 ? ((stage - 1001) % 1000) + 1 : stage;
+  if (s <= 260) return "spring";
+  if (s <= 500) return "summer";
+  if (s <= 760) return "autumn";
   return "winter";
 }
 

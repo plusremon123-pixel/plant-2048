@@ -332,6 +332,65 @@ export function useGame(
     });
   }, [gameState.turnsLeft]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── 덩굴(briar) 번짐 — 15턴마다 인접 빈 칸 1개로 번짐 ── */
+  useEffect(() => {
+    const turnCount = (gameState.maxTurns ?? 0) - (gameState.turnsLeft ?? 0);
+    if (turnCount <= 0) return;
+
+    // thorn 면역과 공유 (대나무 카드가 briar 번짐도 막음)
+    if ((gameState.thornImmunityTurns ?? 0) > 0) return;
+
+    if (turnCount % 15 !== 0) return;
+
+    // briar가 있는지 확인
+    const hasBriar = Object.values(
+      gameState.activeTiles as Record<string, TileData>,
+    ).some((t) => t.tileType === "briar");
+    if (!hasBriar) return;
+
+    setGameState((prev) => {
+      const size  = prev.boardSize ?? 4;
+      const board = prev.board.map((r) => [...r]);
+      const activeTiles = { ...prev.activeTiles } as Record<string, TileData>;
+
+      // 번질 수 있는 briar 후보(인접 빈 칸이 있는 것)만 수집
+      const candidates: { x: number; y: number; empties: { x: number; y: number }[] }[] = [];
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const t = board[y][x];
+          if (t?.tileType !== "briar") continue;
+          const empties = [
+            { x: x - 1, y }, { x: x + 1, y },
+            { x, y: y - 1 }, { x, y: y + 1 },
+          ].filter(
+            (p) =>
+              p.x >= 0 && p.x < size &&
+              p.y >= 0 && p.y < size &&
+              board[p.y][p.x] === null,
+          );
+          if (empties.length > 0) candidates.push({ x, y, empties });
+        }
+      }
+      if (candidates.length === 0) return prev;
+
+      // 후보 중 1개만 무작위 선택 → 인접 빈 칸 1곳에 thorn_spread 생성
+      const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+      const target = chosen.empties[Math.floor(Math.random() * chosen.empties.length)];
+      const newSpread: TileData = {
+        id: generateId(),
+        value: 0,
+        x: target.x,
+        y: target.y,
+        tileType: "thorn_spread",
+        isNew: true,
+      };
+      board[target.y][target.x] = newSpread;
+      activeTiles[newSpread.id] = newSpread;
+
+      return { ...prev, board, activeTiles };
+    });
+  }, [gameState.turnsLeft]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── 턴 연장 (턴 소진 종료 시 광고 보상) ─────────────────
    * n턴 추가 + hasLost/lostByTurns 초기화
    * ──────────────────────────────────────────────────── */

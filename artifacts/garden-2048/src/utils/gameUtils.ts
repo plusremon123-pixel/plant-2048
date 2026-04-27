@@ -1,5 +1,5 @@
 /* ── 타일 타입 ────────────────────────────────────────────── */
-export type TileType = "number" | "soil" | "thorn" | "thorn_spread" | "rock";
+export type TileType = "number" | "soil" | "thorn" | "thorn_spread" | "rock" | "crystal" | "briar";
 
 export type TileData = {
   id: string;
@@ -32,7 +32,9 @@ export const isObstacle = (tile: TileData | null): boolean =>
   tile?.tileType === "soil" ||
   tile?.tileType === "thorn" ||
   tile?.tileType === "thorn_spread" ||
-  tile?.tileType === "rock";
+  tile?.tileType === "rock" ||
+  tile?.tileType === "crystal" ||
+  tile?.tileType === "briar";
 
 let nextId = 0;
 export const generateId = () => `tile-${Date.now()}-${nextId++}`;
@@ -280,6 +282,39 @@ export const moveBoard = (
             /* 번진 가시: 번진 가시만 제거, 내 타일은 유지 */
             newBoard[next.y][next.x] = null;
             delete newActiveTiles[obs.id];
+          } else if (obs?.tileType === "crystal") {
+            /* 수정 💠: hp=1이므로 즉시 제거, 이동 타일은 current에 유지 */
+            newBoard[next.y][next.x] = null;
+            delete newActiveTiles[obs.id];
+            /* 파괴 반응: 인접 빈 칸 1곳에 thorn_spread 생성 */
+            const adj = [
+              { x: next.x - 1, y: next.y }, { x: next.x + 1, y: next.y },
+              { x: next.x, y: next.y - 1 }, { x: next.x, y: next.y + 1 },
+            ].filter(
+              (p) => p.x >= 0 && p.x < size && p.y >= 0 && p.y < size &&
+                     newBoard[p.y][p.x] === null,
+            );
+            if (adj.length > 0) {
+              const target = adj[Math.floor(Math.random() * adj.length)];
+              const spread: TileData = {
+                id: generateId(), value: 0,
+                x: target.x, y: target.y,
+                tileType: "thorn_spread", isNew: true,
+              };
+              newBoard[target.y][target.x] = spread;
+              newActiveTiles[spread.id]    = spread;
+            }
+          } else if (obs?.tileType === "briar") {
+            /* 덩굴 🌿: rock처럼 HP 1 감소, HP=0이면 제거. 이동 타일은 current에 유지. */
+            const newHp = (obs.hp ?? 2) - 1;
+            if (newHp <= 0) {
+              newBoard[next.y][next.x] = null;
+              delete newActiveTiles[obs.id];
+            } else {
+              const updatedBriar: TileData = { ...obs, hp: newHp };
+              newBoard[next.y][next.x]     = updatedBriar;
+              newActiveTiles[obs.id]       = updatedBriar;
+            }
           }
           /* soil: 효과 없음 (타일이 current에서 멈춤) */
         }

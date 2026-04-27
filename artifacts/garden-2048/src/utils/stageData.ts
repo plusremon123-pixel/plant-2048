@@ -1,12 +1,14 @@
 /* ============================================================
  * stageData.ts
- * 스테이지 절차적 생성 시스템 (1 ~ 1000스테이지)
+ * 스테이지 절차적 생성 시스템 (1 ~ 2000스테이지)
  *
  * 설계 원칙:
  *   - 목표 타일 최대 2048 고정 (이후는 턴 수 감소로 난이도 상승)
- *   - 장애물 3종: soil(영구) / rock(3HP 파괴) / thorn(증식·10턴)
+ *   - 장애물 5종: soil(영구) / rock(3HP) / thorn(증식·10턴)
+ *                 crystal(1HP·파괴시가시생성) / briar(2HP·증식·15턴)
  *   - 10판 단위 완급 조절 (리듬 인덱스 9 = 보스슬롯 = 장애물 0)
- *   - thorn 등장 시(501+) boardSize = 6
+ *   - thorn / briar 등장 시 boardSize = 6
+ *   - 1001-2000: crystal + briar 조합 등장, 난이도 = 800-1000 기조 유지
  * ============================================================ */
 
 import {
@@ -27,7 +29,7 @@ export interface StageGoal {
 export interface InitialTile {
   x: number;
   y: number;
-  tileType: "soil" | "thorn" | "rock";
+  tileType: "soil" | "thorn" | "rock" | "crystal" | "briar";
 }
 
 export interface StageConfig {
@@ -141,6 +143,7 @@ const STAGE_NAMES: string[] = [
  * 목표값 티어 — 최대 2048(tier 11)로 고정
  * ============================================================ */
 function getGoalTier(id: number): number {
+  if (id > 1000) return 11;  // 2주기(1001-2000): 전 구간 2048
   if (id <=  5) return 6;    // 64
   if (id <= 15) return 7;    // 128
   if (id <= 30) return 8;    // 256
@@ -164,12 +167,17 @@ const BASE_TURNS: Record<number, number> = {
  */
 function getBaseTurns(id: number, tier: number): number {
   if (tier < 11) return BASE_TURNS[tier] ?? 360;
-  // tier 11 (2048, st 501~1000): 점진 감소
+  // tier 11 (2048) — 1주기 (501~1000): 점진 감소
   if (id <= 600) return 470;
   if (id <= 700) return 430;
   if (id <= 800) return 380;
   if (id <= 900) return 320;
-  return 260;
+  if (id <= 1000) return 260;
+  // tier 11 (2048) — 2주기 (1001~2000): 800-1000 기조 유지하며 추가 감소
+  if (id <= 1200) return 280;
+  if (id <= 1500) return 250;
+  if (id <= 1800) return 220;
+  return 200;   // 1801~2000
 }
 
 /**
@@ -190,30 +198,32 @@ function isEasySlot(id: number):    boolean { const r = getRhythmIdx(id); return
  * 구간별 장애물 수 — 리듬 기반 + 보스슬롯 = 항상 0
  * ============================================================ */
 function getObstacleCount(id: number): number {
-  const rhythmIdx = getRhythmIdx(id);
   if (isBossSlot(id)) return 0;  // 보스슬롯: 모든 구간에서 숨 고르기
 
   const hard = isHardSlot(id);
   const easy = isEasySlot(id);
 
-  if (id <= 30)  return 0;
-  if (id <= 80)  return hard ? 2 : easy ? 0 : 1;
-  if (id <= 250) return hard ? 3 : easy ? 1 : 2;
-  if (id <= 500) return hard ? 4 : easy ? 1 : 2;
-  return         hard ? 5 : easy ? 2 : 3;  // 501~1000
+  if (id <= 30)   return 0;
+  if (id <= 80)   return hard ? 2 : easy ? 0 : 1;
+  if (id <= 250)  return hard ? 3 : easy ? 1 : 2;
+  if (id <= 500)  return hard ? 4 : easy ? 1 : 2;
+  if (id <= 1000) return hard ? 5 : easy ? 2 : 3;  // 501~1000
+  return          hard ? 5 : easy ? 2 : 3;         // 1001~2000 (동일)
 }
 
 /* ============================================================
- * 장애물 타입 결정 — 3종 분기
+ * 장애물 타입 결정 — 5종 분기
  *
- * soil(흙)  : 영구 블로커, 초반 위주 / easy 슬롯에 간헐적 등장
- * rock(바위): 3HP 내구, 중반부터 주력
- * thorn(가시): 증식형, 501 이후 등장
+ * soil(흙)    : 영구 블로커, 초반 위주 / easy 슬롯에 간헐적 등장
+ * rock(바위)  : 3HP 내구, 중반부터 주력
+ * thorn(가시) : 증식형(10턴), 501 이후 등장
+ * crystal(수정): 1HP, 파괴 시 인접 가시 생성, 1001 이후 등장
+ * briar(덩굴) : 2HP, 증식형(15턴), 1001 이후 등장
  * ============================================================ */
 function getObstacleType(
   id: number,
   posInSet: number,
-): "soil" | "rock" | "thorn" {
+): "soil" | "rock" | "thorn" | "crystal" | "briar" {
   const easy = isEasySlot(id);
 
   // 1~150: soil만
@@ -225,9 +235,25 @@ function getObstacleType(
     return "rock";
   }
 
-  // 501~: thorn + rock 위주, easy 슬롯 일부에만 soil
+  // 501~1000: thorn + rock 위주, easy 슬롯 일부에만 soil
+  if (id <= 1000) {
+    if (easy && posInSet === 0) return "soil";
+    return posInSet === 0 ? "rock" : "thorn";
+  }
+
+  // 1001~2000: crystal + briar + thorn + rock 조합
+  //   posInSet 0 → briar  (느린 번짐 + 2HP)
+  //   posInSet 1 → thorn  (빠른 번짐)
+  //   posInSet 2 → crystal(파괴 반응 수정)
+  //   posInSet 3 → rock   (기존 3HP 바위)
+  //   posInSet 4 → crystal
+  //   easy 슬롯 posInSet 0 → soil (숨쉬기)
   if (easy && posInSet === 0) return "soil";
-  return posInSet === 0 ? "rock" : "thorn";
+  if (posInSet === 0) return "briar";
+  if (posInSet === 1) return "thorn";
+  if (posInSet === 2) return "crystal";
+  if (posInSet === 3) return "rock";
+  return "crystal";   // posInSet 4
 }
 
 /* ============================================================
@@ -276,8 +302,8 @@ function generateStage(id: number): StageConfig {
     );
   }
 
-  // thorn 포함 여부에 따라 보드 크기 결정
-  const hasThorn  = initialTiles.some((t) => t.tileType === "thorn");
+  // thorn 또는 briar 포함 시 6×6 보드 (번짐 장애물 = 더 넓은 공간 필요)
+  const hasThorn  = initialTiles.some((t) => t.tileType === "thorn" || t.tileType === "briar");
   const boardSize: 4 | 5 | 6 = hasThorn ? 6 : 4;
 
   /**
@@ -299,9 +325,9 @@ function generateStage(id: number): StageConfig {
  * 공개 API
  * ============================================================ */
 
-/** id 범위: 1 ~ 1000 */
+/** id 범위: 1 ~ 2000 */
 export const getStageConfig = (stageId: number): StageConfig | null => {
-  if (stageId < 1 || stageId > 1000) return null;
+  if (stageId < 1 || stageId > 2000) return null;
   return generateStage(stageId);
 };
 
@@ -322,7 +348,7 @@ export const initializeStage = (config: StageConfig): GameState => {
       x:        it.x,
       y:        it.y,
       tileType: it.tileType,
-      hp:       it.tileType === "rock" ? 3 : undefined,
+      hp:       it.tileType === "rock" ? 3 : it.tileType === "briar" ? 2 : undefined,
     };
     board[it.y][it.x] = tile;
     activeTiles[tile.id] = tile;

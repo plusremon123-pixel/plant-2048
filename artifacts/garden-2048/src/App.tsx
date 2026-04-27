@@ -281,7 +281,7 @@ export default function App() {
           {/* 구분선 */}
           <div style={{ height: 1, background: "#cbd5e1", margin: "2px 0" }} />
 
-          {/* 계절 전환 테스트 (전환 직전 스테이지) */}
+          {/* 1주기 계절 전환 테스트 (전환 직전 스테이지) */}
           {([
             { label: "🌸 260",  lv: 259 },
             { label: "☀️ 500", lv: 499 },
@@ -297,6 +297,29 @@ export default function App() {
                 fontSize: 10, fontWeight: 700, padding: "3px 7px",
                 borderRadius: 8, border: "1.5px solid #a7f3d0",
                 background: "#ecfdf5", color: "#065f46", cursor: "pointer", lineHeight: 1.4,
+              }}
+            >{label}</button>
+          ))}
+
+          {/* 구분선 */}
+          <div style={{ height: 1, background: "#cbd5e1", margin: "2px 0" }} />
+
+          {/* 2주기 계절 전환 테스트 (1001~2000) */}
+          {([
+            { label: "🌸 1260", lv: 1259 },
+            { label: "☀️ 1500", lv: 1499 },
+            { label: "🍂 1760", lv: 1759 },
+          ] as const).map(({ label, lv }) => (
+            <button
+              key={lv}
+              onClick={() => {
+                localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify({ coins: 9999, clearedLevel: lv }));
+                window.location.reload();
+              }}
+              style={{
+                fontSize: 10, fontWeight: 700, padding: "3px 7px",
+                borderRadius: 8, border: "1.5px solid #c4b5fd",
+                background: "#f5f3ff", color: "#5b21b6", cursor: "pointer", lineHeight: 1.4,
               }}
             >{label}</button>
           ))}

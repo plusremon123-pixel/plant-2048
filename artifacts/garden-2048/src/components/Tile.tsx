@@ -1,3 +1,4 @@
+import React from "react";
 import { TileData } from "@/utils/gameUtils";
 import { THEMES } from "@/utils/themes";
 import { clsx, type ClassValue } from "clsx";
@@ -33,86 +34,94 @@ export function Tile({
     "--y": data.y,
   } as React.CSSProperties;
 
-  /* ── 장애물 타일 렌더링 ────────────────────────────────── */
-  if (data.tileType === "soil") {
-    return (
+  /* ── 장애물 타일 렌더링 (배경 투명, 이모지 부착 방식) ──── */
+
+  /**
+   * 공통 장애물 래퍼
+   * - 배경 없음(투명) → 보드 격자 색상이 그대로 보임
+   * - selectMode: 노란 링 + 약한 흰 반투명 배경으로 선택 가능 상태 표시
+   */
+  const ObstacleCell = ({
+    children,
+    opacity = 1,
+  }: {
+    children: React.ReactNode;
+    opacity?: number;
+  }) => (
+    <div
+      className={cn("tile-wrapper", isGhost && "z-0")}
+      style={{ ...cssVars, opacity }}
+      onClick={!isGhost ? onClick : undefined}
+    >
       <div
-        className={cn("tile-wrapper", isGhost && "z-0")}
-        style={cssVars}
-        onClick={!isGhost ? onClick : undefined}
+        className={cn(
+          "tile-inner",                       // 기본 레이아웃 (flex, center 등)
+          selectMode && !isGhost &&
+            "ring-2 ring-yellow-300/80 ring-offset-1 cursor-pointer bg-white/15",
+        )}
+        style={{ background: selectMode && !isGhost ? undefined : "transparent" }}
       >
-        <div className={cn(
-          "tile-inner bg-amber-800/75 text-amber-100",
-          selectMode && !isGhost && "ring-2 ring-yellow-300/80 ring-offset-1 cursor-pointer hover:brightness-95",
-        )}>
-          <span className="text-xl md:text-2xl leading-none">🟫</span>
-        </div>
+        {children}
       </div>
-    );
+    </div>
+  );
+
+  const isSmallCell = gridSize > 4;
+  const emojiSm = isSmallCell ? "text-2xl leading-none" : "text-3xl leading-none";
+  const emojiMd = isSmallCell ? "text-xl  leading-none" : "text-2xl md:text-3xl leading-none";
+
+  if (data.tileType === "soil") {
+    return <ObstacleCell><span className={emojiSm}>🟫</span></ObstacleCell>;
   }
 
   if (data.tileType === "thorn") {
-    /* 원본 가시 — 진한 빨강, 카드로만 제거 가능 */
-    return (
-      <div
-        className={cn("tile-wrapper", isGhost && "z-0")}
-        style={cssVars}
-        onClick={!isGhost ? onClick : undefined}
-      >
-        <div className={cn(
-          "tile-inner bg-rose-800/75 text-rose-100",
-          selectMode && !isGhost && "ring-2 ring-yellow-300/80 ring-offset-1 cursor-pointer hover:brightness-95",
-        )}>
-          <span className="text-xl md:text-2xl leading-none">🌵</span>
-        </div>
-      </div>
-    );
+    /* 원본 가시 — 100% 불투명 */
+    return <ObstacleCell><span className={emojiSm}>🌵</span></ObstacleCell>;
   }
 
   if (data.tileType === "thorn_spread") {
-    /* 번진 가시 — 주황, 타일 충돌 시 제거됨 */
-    return (
-      <div
-        className={cn("tile-wrapper", isGhost && "z-0")}
-        style={cssVars}
-        onClick={!isGhost ? onClick : undefined}
-      >
-        <div className={cn(
-          "tile-inner text-orange-100",
-          selectMode && !isGhost && "ring-2 ring-yellow-300/80 ring-offset-1 cursor-pointer hover:brightness-95",
-        )} style={{ background: "rgba(154, 52, 18, 0.70)" }}>
-          <span className="text-xl md:text-2xl leading-none">🌵</span>
-        </div>
-      </div>
-    );
+    /* 번진 가시 — 60% 불투명으로 '확산됨' 표현 */
+    return <ObstacleCell opacity={0.6}><span className={emojiSm}>🌵</span></ObstacleCell>;
   }
 
   if (data.tileType === "rock") {
-    const hp = data.hp ?? 3;
-    const rockBg =
-      hp >= 3 ? "bg-slate-600 text-slate-100" :
-      hp === 2 ? "bg-slate-500 text-slate-100" :
-                  "bg-slate-400 text-slate-100";
-    /* 6×6 이상의 작은 셀: 이모지 크기 축소 */
-    const isSmallCell = gridSize > 4;
-    const emojiCls = isSmallCell ? "text-base leading-none" : "text-xl md:text-2xl leading-none";
-    /* HP 표시: 반복 이모지(폭 넘침) 대신 ♥ + 숫자 뱃지로 통일 */
+    /* 바위 — HP에 따라 이모지 아래 작은 HP 뱃지 */
+    const hp     = data.hp ?? 3;
     const hpDots = "♥".repeat(hp);
-    const hpCls  = isSmallCell ? "text-[9px] font-bold leading-none tracking-tight" : "text-[11px] font-bold leading-none";
+    const hpCls  = isSmallCell
+      ? "text-[8px] font-black leading-none tracking-tight text-slate-700 drop-shadow-sm"
+      : "text-[10px] font-black leading-none text-slate-700 drop-shadow-sm";
     return (
-      <div
-        className={cn("tile-wrapper", isGhost && "z-0")}
-        style={cssVars}
-        onClick={!isGhost ? onClick : undefined}
-      >
-        <div className={cn(
-          "tile-inner", rockBg,
-          selectMode && !isGhost && "ring-2 ring-yellow-300/80 ring-offset-1 cursor-pointer hover:brightness-95",
-        )}>
-          <span className={emojiCls}>🪨</span>
-          <span className={hpCls}>{hpDots}</span>
-        </div>
-      </div>
+      <ObstacleCell>
+        <span className={emojiMd}>🪨</span>
+        <span className={hpCls}>{hpDots}</span>
+      </ObstacleCell>
+    );
+  }
+
+  if (data.tileType === "crystal") {
+    /* 수정 💠 — hp=1, 파괴 시 가시 생성. 살짝 반짝이는 느낌을 위해 drop-shadow */
+    return (
+      <ObstacleCell>
+        <span className={emojiSm} style={{ filter: "drop-shadow(0 0 4px rgba(167,139,250,0.9))" }}>
+          💠
+        </span>
+      </ObstacleCell>
+    );
+  }
+
+  if (data.tileType === "briar") {
+    /* 덩굴 🌿 — hp=2, 15턴마다 번짐. HP 뱃지 표시 */
+    const hp     = data.hp ?? 2;
+    const hpDots = "♥".repeat(hp);
+    const hpCls  = isSmallCell
+      ? "text-[8px] font-black leading-none tracking-tight text-emerald-800 drop-shadow-sm"
+      : "text-[10px] font-black leading-none text-emerald-800 drop-shadow-sm";
+    return (
+      <ObstacleCell>
+        <span className={emojiMd}>🌿</span>
+        <span className={hpCls}>{hpDots}</span>
+      </ObstacleCell>
     );
   }
 
