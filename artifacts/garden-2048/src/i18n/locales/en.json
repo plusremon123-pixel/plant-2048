@@ -247,7 +247,17 @@
     "renewalDate": "Next Renewal",
     "monthlyAmount": "Monthly",
     "monthlyPrice": "$2.99 / mo",
-    "confirm": "Done"
+    "confirm": "Done",
+    "welcome": {
+      "badge": "Premium Activated",
+      "title": "Welcome! 🎉",
+      "subtitle": "Enjoy your premium perks starting now",
+      "nextBtn": "See Unlocked Cards →",
+      "cardsTitle": "Premium Cards Unlocked!",
+      "cardsSubtitle": "Available in the '💎 Premium' tab when selecting cards",
+      "cardHint": "💡 Find the Premium tab in the card selection screen",
+      "doneBtn": "Start Playing 🎮"
+    }
   },
   "goldBoost": {
     "title": "Gold ×4 Auto-Applied!",

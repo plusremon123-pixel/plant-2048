@@ -21,6 +21,7 @@ import { TutorialModal } from "@/components/TutorialModal";
 import Game from "@/pages/Game";
 import EndlessGame from "@/pages/EndlessGame";
 import { EndlessDifficultyModal } from "@/components/modals/EndlessDifficultyModal";
+import { PremiumWelcomeModal } from "@/components/modals/PremiumWelcomeModal";
 import {
   loadEndlessSave,
   type EndlessDifficulty,
@@ -76,6 +77,18 @@ export default function App() {
   } = useMissions();
   const { settings, toggleSetting } = useSettings();
   const { sub, active: isPremiumActive, startTrial, buyPremium } = useSubscription();
+
+  /* ── 프리미엄 환영 모달 ─────────────────────────────────── */
+  const [showPremiumWelcome, setShowPremiumWelcome] = useState(false);
+
+  const handleStartTrial = () => {
+    startTrial();
+    setShowPremiumWelcome(true);
+  };
+  const handleBuyPremium = async () => {
+    await buyPremium();
+    setShowPremiumWelcome(true);
+  };
 
   /* ── 인벤토리 (홈 상점용 — Game.tsx의 useShop과 별개로 관리) */
   const [inventory, setInventory] = useState<Inventory>(loadInventory);
@@ -180,7 +193,7 @@ export default function App() {
             onToggleSetting={toggleSetting}
             isPremiumActive={isPremiumActive}
             subscriptionState={sub}
-            onBuyPremium={buyPremium}
+            onBuyPremium={handleBuyPremium}
             onStartEndless={handleStartEndless}
           />
         </div>
@@ -213,8 +226,8 @@ export default function App() {
               updateMission={updateMission}
               updateWeeklyMission={updateWeeklyMission}
               subscriptionState={sub}
-              onStartTrial={startTrial}
-              onBuyPremium={buyPremium}
+              onStartTrial={handleStartTrial}
+              onBuyPremium={handleBuyPremium}
               devForceWinRef={devForceWinRef}
             />
           )}
@@ -228,6 +241,14 @@ export default function App() {
           onContinue={(diff) => handleStartEndless(diff, true)}
           onClose={handleGoToFront}
           season={getSeason(Math.max(1, player.clearedLevel + 1))}
+        />
+      )}
+
+      {/* ── 프리미엄 환영 모달 ───────────────────────────────── */}
+      {showPremiumWelcome && (
+        <PremiumWelcomeModal
+          season={getSeason(Math.max(1, player.clearedLevel + 1))}
+          onDone={() => setShowPremiumWelcome(false)}
         />
       )}
 
