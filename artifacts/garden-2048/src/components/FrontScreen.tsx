@@ -584,7 +584,7 @@ function TopHudBar({ player, season }: { player: PlayerData; season: Season }) {
               flexShrink:    0,
               whiteSpace:    "nowrap",
             }}
-          >{bonus > 0 ? `+${bonus}` : lives}</span>
+          >{`+${bonus > 0 ? bonus : lives}`}</span>
         </div>
 
         {/* ── 코인 필 ───────────────────────────────────────── */}
