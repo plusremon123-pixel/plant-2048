@@ -6,6 +6,7 @@
 import { useState, useCallback } from "react";
 import {
   PlayerData,
+  MAX_LIVES,
   loadPlayerData,
   savePlayerData,
 } from "@/utils/playerData";
@@ -45,10 +46,33 @@ export function usePlayer() {
     });
   }, []);
 
+  /** 생명력 1 차감. 이미 0이면 false 반환. */
+  const spendLife = useCallback((): boolean => {
+    let success = false;
+    setPlayer((prev) => {
+      if (prev.lives <= 0) return prev;
+      success = true;
+      const updated = { ...prev, lives: prev.lives - 1 };
+      savePlayerData(updated);
+      return updated;
+    });
+    return success;
+  }, []);
+
+  /** 생명력 n 추가 (MAX_LIVES 상한). */
+  const addLives = useCallback((n: number) => {
+    if (n <= 0) return;
+    setPlayer((prev) => {
+      const updated = { ...prev, lives: Math.min(MAX_LIVES, prev.lives + n) };
+      savePlayerData(updated);
+      return updated;
+    });
+  }, []);
+
   /** 강제로 플레이어 데이터를 재로드한다. */
   const reloadPlayer = useCallback(() => {
     setPlayer(loadPlayerData());
   }, []);
 
-  return { player, clearLevel, spendCoins, addCoins, reloadPlayer };
+  return { player, clearLevel, spendCoins, addCoins, reloadPlayer, spendLife, addLives };
 }

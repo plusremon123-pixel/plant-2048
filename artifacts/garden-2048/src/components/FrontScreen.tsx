@@ -328,6 +328,10 @@ export function FrontScreen({
       {ready && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
 
+          {/* ── 상단 생명력 / 코인 표시 ─────────────────────── */}
+          <LivesDisplay lives={player.lives} bg={bg} season={season} />
+          <TopCoinDisplay coins={player.coins} bg={bg} season={season} />
+
           {/* ── 타이틀 ──────────────────────────────────────── */}
           <HomeTitle bg={bg} season={season} />
 
@@ -471,32 +475,80 @@ function HomeTitle({ bg, season }: { bg: BgLayout; season: Season }) {
 }
 
 /* ============================================================
- * CoinDisplay — 코인 표시
+ * LivesDisplay — 홈 상단 생명력 표시 (design coords 300, 100)
  * ============================================================ */
-function CoinDisplay({ coins, bg }: { coins: number; bg: BgLayout }) {
-  const { rx, ry, scaleX } = toRenderPoint(840, 390, bg);
-  const fontSize = Math.max(11, 14 * scaleX);
+function LivesDisplay({ lives, bg, season }: { lives: number; bg: BgLayout; season: Season }) {
+  const { rx, ry, scaleX } = toRenderPoint(300, 100, bg);
+  const fontSize  = Math.max(13, 15 * scaleX);
+  const palette   = SEASON_MENU_PALETTE[season];
+  const MAX_SLOTS = 5;
+  const filled    = Math.min(lives, MAX_SLOTS);
+  const bonus     = Math.max(0, lives - MAX_SLOTS);
+
   return (
     <div
       style={{
         position:      "absolute",
         left:          rx,
         top:           ry,
+        transform:     "translateX(-50%)",
+        zIndex:        20,
+        pointerEvents: "none",
+        display:       "flex",
+        alignItems:    "center",
+        gap:           3 * scaleX,
+        background:    palette.bg + "dd",
+        border:        `1px solid ${palette.text}40`,
+        borderRadius:  9999,
+        padding:       `${4 * scaleX}px ${10 * scaleX}px`,
+        boxShadow:     `0 2px 8px ${palette.shadow}`,
+        backdropFilter:"blur(4px)",
+      }}
+    >
+      {Array.from({ length: MAX_SLOTS }, (_, i) => (
+        <span key={i} style={{ fontSize: fontSize + 2, lineHeight: 1, opacity: i < filled ? 1 : 0.25 }}>
+          ❤️
+        </span>
+      ))}
+      {bonus > 0 && (
+        <span style={{ fontSize, fontWeight: 800, color: palette.text, lineHeight: 1, marginLeft: 2 * scaleX }}>
+          +{bonus}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+ * TopCoinDisplay — 홈 상단 코인 표시 (design coords 820, 100)
+ * ============================================================ */
+function TopCoinDisplay({ coins, bg, season }: { coins: number; bg: BgLayout; season: Season }) {
+  const { rx, ry, scaleX } = toRenderPoint(820, 100, bg);
+  const fontSize = Math.max(13, 15 * scaleX);
+  const palette  = SEASON_MENU_PALETTE[season];
+
+  return (
+    <div
+      style={{
+        position:      "absolute",
+        left:          rx,
+        top:           ry,
+        transform:     "translateX(-50%)",
         zIndex:        20,
         pointerEvents: "none",
         display:       "flex",
         alignItems:    "center",
         gap:           6 * scaleX,
-        background:    "rgba(255,248,230,0.88)",
-        border:        "1px solid rgba(217,170,90,0.45)",
+        background:    palette.bg + "dd",
+        border:        `1px solid ${palette.text}40`,
         borderRadius:  9999,
         padding:       `${4 * scaleX}px ${10 * scaleX}px`,
-        boxShadow:     "0 2px 8px rgba(140,90,30,0.12)",
+        boxShadow:     `0 2px 8px ${palette.shadow}`,
         backdropFilter:"blur(4px)",
       }}
     >
       <span style={{ fontSize: fontSize + 2, lineHeight: 1 }}>🪙</span>
-      <span style={{ fontSize, fontWeight: 800, color: "#a0640a", lineHeight: 1 }}>
+      <span style={{ fontSize, fontWeight: 800, color: palette.text, lineHeight: 1 }}>
         {coins.toLocaleString()}
       </span>
     </div>

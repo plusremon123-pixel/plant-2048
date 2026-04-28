@@ -63,6 +63,8 @@ import { checkTrialExpiry } from "@/utils/subscriptionData";
 import { FreeTrialModal }   from "@/components/modals/FreeTrialModal";
 import { PremiumPassModal } from "@/components/modals/PremiumPassModal";
 import { GoldBoostModal }   from "@/components/modals/GoldBoostModal";
+import { BuyLivesModal }   from "@/components/modals/BuyLivesModal";
+import { GoldShopModal }   from "@/components/modals/GoldShopModal";
 
 interface GameProps {
   themeId?:              string;   // 하위 호환 유지 (미사용)
@@ -71,6 +73,8 @@ interface GameProps {
   onClearLevel:          () => void;
   onEarnCoins:           (coins: number) => void;
   onSpendCoins:          (amount: number) => boolean;
+  onSpendLife?:          () => void;
+  onAddLives?:           (n: number) => void;
   onHome:                () => void;
   onThemeChange?:        (id: string) => void;  // 하위 호환 유지 (미사용)
   updateMission:         (id: MissionId, inc?: number) => void;
@@ -88,6 +92,8 @@ export default function Game({
   onClearLevel,
   onEarnCoins,
   onSpendCoins,
+  onSpendLife,
+  onAddLives,
   onHome,
   updateMission,
   updateWeeklyMission,
@@ -240,7 +246,12 @@ export default function Game({
   /* ── 게임 종료 모달 상태 ─────────────────────────────── */
   const gameEndTriggeredRef = useRef(false);
   const revivedRef          = useRef(false);   // 부활 1회 제한
+  const lifeSpentRef        = useRef(false);   // 생명력 소모 중복 방지
   const [showEndModal, setShowEndModal] = useState(false);
+
+  /* ── 생명력 충전 모달 상태 ───────────────────────────── */
+  const [showBuyLivesModal,     setShowBuyLivesModal]     = useState(false);
+  const [showBuyLivesGoldModal, setShowBuyLivesGoldModal] = useState(false);
   const [endIsWin,  setEndIsWin]  = useState(false);
   const [endScore,  setEndScore]  = useState(0);
   const [endTile,   setEndTile]   = useState(0);
@@ -269,6 +280,13 @@ export default function Game({
   useEffect(() => {
     if ((hasLost || showWinModal) && !gameEndTriggeredRef.current && !showEndModal) {
       gameEndTriggeredRef.current = true;
+
+      /* 생명력 차감: Stage 모드 실패 시 1회만 */
+      if (hasLost && !lifeSpentRef.current && isActive) {
+        lifeSpentRef.current = true;
+        onSpendLife?.();
+      }
+
       setEndIsWin(showWinModal);
       setEndScore(score);
       setEndTile(highestTile);
@@ -501,6 +519,20 @@ export default function Game({
     }
   };
 
+  /* ── 생명력 충전 모달 열기 ────────────────────────────── */
+  const handleBuyLives = useCallback(() => {
+    setShowBuyLivesModal(true);
+  }, []);
+
+  /* ── 생명력 코인으로 충전: 1,000 코인 → 10 생명력 ─────── */
+  const handleBuyLivesWithCoins = useCallback(() => {
+    const ok = onSpendCoins(1000);
+    if (ok) {
+      onAddLives?.(10);
+      setShowBuyLivesModal(false);
+    }
+  }, [onSpendCoins, onAddLives]);
+
   /* ── 부활 (패배 시 광고 1회, 5턴 되돌리기) ──────────── */
   const handleRevive = useCallback(() => {
     if (revivedRef.current) return;
@@ -605,6 +637,7 @@ export default function Game({
 
     setShowEndModal(false);
     gameEndTriggeredRef.current    = false;
+    lifeSpentRef.current           = false;
     mission64ReportedRef.current   = false;
     mission128ReportedRef.current  = false;
 
@@ -658,6 +691,7 @@ export default function Game({
   const confirmReset = () => {
     setShowResetConfirm(false);
     gameEndTriggeredRef.current    = false;
+    lifeSpentRef.current           = false;
     mission64ReportedRef.current   = false;
     mission128ReportedRef.current  = false;
     setTileSelectCb(null);
@@ -670,6 +704,7 @@ export default function Game({
   const confirmHome = () => {
     setShowHomeConfirm(false);
     gameEndTriggeredRef.current    = false;
+    lifeSpentRef.current           = false;
     mission64ReportedRef.current   = false;
     mission128ReportedRef.current  = false;
     setTileSelectCb(null);
@@ -942,8 +977,10 @@ export default function Game({
         player={playerSnapshot}
         season={season}
         isPremiumActive={premiumActive}
+        lives={player.lives}
         onRevive={!endIsWin && !lostByTurns && !revivedRef.current ? handleRevive : undefined}
         onExtendTurns={!endIsWin && lostByTurns && !revivedRef.current ? handleExtendTurns : undefined}
+        onBuyLives={!endIsWin ? handleBuyLives : undefined}
         onConfirm={handleEndConfirm}
       />
 
@@ -1116,6 +1153,32 @@ export default function Game({
           </div>
         </div>,
         document.body
+      )}
+
+      {/* ── 생명력 충전 모달 ───────────────────────────────── */}
+      {showBuyLivesModal && (
+        <BuyLivesModal
+          coins={player.coins}
+          season={season}
+          onBuyWithCoins={handleBuyLivesWithCoins}
+          onBuyWithGold={() => {
+            setShowBuyLivesModal(false);
+            setShowBuyLivesGoldModal(true);
+          }}
+          onClose={() => setShowBuyLivesModal(false)}
+        />
+      )}
+
+      {/* ── 골드 구매 모달 ─────────────────────────────────── */}
+      {showBuyLivesGoldModal && (
+        <GoldShopModal
+          season={season}
+          onEarnCoins={(amount) => {
+            onEarnCoins(amount);
+            setShowBuyLivesGoldModal(false);
+          }}
+          onClose={() => setShowBuyLivesGoldModal(false)}
+        />
       )}
 
       {/* ── 인터스티셜 광고 오버레이 ──────────────────────── */}

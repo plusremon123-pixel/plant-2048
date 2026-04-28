@@ -478,5 +478,20 @@
     "moreRewards": "+{{count}} more rewards",
     "levelNext": "Next:",
     "xpProgress": "To next level"
+  },
+  "lives": {
+    "chargeTitle": "Charge Lives",
+    "cost":        "10 Lives = 1,000 🪙",
+    "currentCoins":"Coins",
+    "buyWithCoins":"🪙 Charge with Coins",
+    "noCoins":     "Not enough coins",
+    "buyGold":     "💰 Buy Gold",
+    "chargeBtn":   "❤️ Charge Lives",
+    "goldTitle":   "Buy Gold",
+    "goldDesc":    "Gold will be converted to coins",
+    "buyBtn":      "Buy",
+    "buying":      "Buying...",
+    "recommend":   "Recommend",
+    "best":        "Best"
   }
 }

@@ -20,8 +20,10 @@ interface GameEndModalProps {
   player:            PlayerData;
   season:            Season;
   isPremiumActive?:  boolean;
+  lives?:            number;           // 현재 잔여 생명력 (undefined = 생명력 시스템 미사용)
   onRevive?:         () => void;        // 보드 가득 찬 패배 시 부활
   onExtendTurns?:    () => void;        // 턴 소진 패배 시 턴 연장
+  onBuyLives?:       () => void;        // 생명력 소진 시 충전 유도
   onConfirm:         (earnedCoins: number, action: "reset" | "home") => void;
 }
 
@@ -35,10 +37,14 @@ export function GameEndModal({
   player,
   season,
   isPremiumActive = false,
+  lives,
   onRevive,
   onExtendTurns,
+  onBuyLives,
   onConfirm,
 }: GameEndModalProps) {
+  /* 생명력이 0이면 부활/연장 불가 */
+  const livesEmpty = typeof lives === "number" && lives <= 0;
   const { t } = useTranslation();
   const theme = SEASON_THEMES[season];
 
@@ -165,8 +171,19 @@ export function GameEndModal({
           )}
         </div>
 
+        {/* ── 생명력 소진 시 충전 버튼 ──────────────────────── */}
+        {!isWin && livesEmpty && onBuyLives && (
+          <button
+            onClick={onBuyLives}
+            className="w-full py-3.5 rounded-2xl font-bold text-sm text-white shadow-md active:scale-95 transition-all"
+            style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)" }}
+          >
+            ❤️ {t("lives.chargeBtn")}
+          </button>
+        )}
+
         {/* ── 턴 연장 (턴 소진 패배 + onExtendTurns 있을 때) ── */}
-        {!isWin && onExtendTurns && reviveAd !== "done" && (
+        {!isWin && !livesEmpty && onExtendTurns && reviveAd !== "done" && (
           <button
             onClick={handleExtendTurnsAd}
             disabled={reviveAd === "watching"}
@@ -192,7 +209,7 @@ export function GameEndModal({
         )}
 
         {/* ── 부활하기 (보드 가득 찬 패배 + onRevive 있을 때만) */}
-        {!isWin && onRevive && reviveAd !== "done" && (
+        {!isWin && !livesEmpty && onRevive && reviveAd !== "done" && (
           <button
             onClick={handleReviveAd}
             disabled={reviveAd === "watching"}

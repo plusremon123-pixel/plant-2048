@@ -435,5 +435,20 @@
     "thorn": "가시",
     "thornSpread": "가시",
     "rock": "바위"
+  },
+  "lives": {
+    "chargeTitle": "생명력 충전",
+    "cost":        "10 생명력 = 1,000 🪙",
+    "currentCoins":"보유 코인",
+    "buyWithCoins":"🪙 코인으로 충전하기",
+    "noCoins":     "코인 부족",
+    "buyGold":     "💰 골드 구매하기",
+    "chargeBtn":   "❤️ 생명력 충전하기",
+    "goldTitle":   "골드 구매",
+    "goldDesc":    "골드를 구매하면 코인으로 전환됩니다",
+    "buyBtn":      "구매하기",
+    "buying":      "구매 중...",
+    "recommend":   "추천",
+    "best":        "베스트"
   }
 }

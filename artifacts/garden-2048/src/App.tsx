@@ -27,7 +27,7 @@ import {
   type EndlessDifficulty,
   type EndlessSaveData,
 } from "@/utils/endlessModeData";
-import { giveInitialGiftIfNeeded } from "@/utils/economyUtils";
+import { giveInitialGiftIfNeeded, giveInitialLivesIfNeeded } from "@/utils/economyUtils";
 import {
   loadInventory, saveInventory,
   type Inventory, type ShopItemId,
@@ -41,6 +41,7 @@ const TUTORIAL_KEY = "plant2048_tutorial_done";
 
 /* ── 초기 선물: 훅 실행 전 localStorage에 직접 반영 ─────── */
 giveInitialGiftIfNeeded();
+giveInitialLivesIfNeeded();
 
 /* ── AdMob 초기화 (네이티브에서만 실제 동작, 웹은 noop) ─── */
 void initAdmob();
@@ -70,7 +71,7 @@ export default function App() {
   const [endlessDifficulty, setEndlessDifficulty] = useState<EndlessDifficulty>("easy");
   const [endlessResumeSave, setEndlessResumeSave] = useState<EndlessSaveData | null>(null);
 
-  const { player, clearLevel, spendCoins, addCoins, reloadPlayer } = usePlayer();
+  const { player, clearLevel, spendCoins, addCoins, reloadPlayer, spendLife, addLives } = usePlayer();
   const {
     missions, updateMission, claimMission,
     weeklyMissions, updateWeeklyMission, claimWeeklyMission,
@@ -221,6 +222,8 @@ export default function App() {
               onClearLevel={clearLevel}
               onEarnCoins={addCoins}
               onSpendCoins={spendCoins}
+              onSpendLife={spendLife}
+              onAddLives={addLives}
               onHome={handleGoToFront}
               onThemeChange={selectTheme}
               updateMission={updateMission}

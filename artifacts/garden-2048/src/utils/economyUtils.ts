@@ -10,6 +10,28 @@
 import { loadInventory, saveInventory } from "./shopData";
 import { loadPlayerData, savePlayerData } from "./playerData";
 
+/* ── 초기 생명력 지급 ──────────────────────────────────── */
+const LIVES_GIFT_KEY     = "plant2048_lives_init_v1";
+const INITIAL_LIVES      = 5;
+
+/**
+ * 생명력이 0인 사용자(신규·기존 모두)에게 1회만 초기 생명력 5개를 지급한다.
+ * usePlayer 훅 초기화 전에 호출해야 함 (App.tsx 최상단).
+ */
+export const giveInitialLivesIfNeeded = (): boolean => {
+  try {
+    if (localStorage.getItem(LIVES_GIFT_KEY)) return false;
+    const player = loadPlayerData();
+    if (player.lives === 0) {
+      savePlayerData({ ...player, lives: INITIAL_LIVES });
+    }
+    localStorage.setItem(LIVES_GIFT_KEY, "1");
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 /* ── 게임 종료 코인 계산 ───────────────────────────────── */
 
 /**

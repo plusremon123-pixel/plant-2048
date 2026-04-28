@@ -3,10 +3,14 @@
  * 플레이어 데이터 — 코인·클리어 레벨 중심 (XP 완전 제거)
  * ============================================================ */
 
+/* ── 생명력 상수 ─────────────────────────────────────────── */
+export const MAX_LIVES = 10;
+
 /* ── 플레이어 데이터 구조 ───────────────────────────────── */
 export interface PlayerData {
   coins:        number;
   clearedLevel: number;  /* 클리어한 맵 스테이지 번호 (0 = 아직 없음) */
+  lives:        number;  /* 생명력 (0 ~ MAX_LIVES) */
 }
 
 /* ── 레벨별 목표 점수 테이블 ─────────────────────────────── */
@@ -30,7 +34,7 @@ export const getLevelGoal = (level: number): number =>
 /* ── localStorage 영속성 ────────────────────────────────── */
 export const PLAYER_STORAGE_KEY = "plant2048_player";
 
-const DEFAULT_PLAYER: PlayerData = { coins: 0, clearedLevel: 0 };
+const DEFAULT_PLAYER: PlayerData = { coins: 0, clearedLevel: 0, lives: 0 };
 
 export const loadPlayerData = (): PlayerData => {
   try {
@@ -40,6 +44,7 @@ export const loadPlayerData = (): PlayerData => {
     return {
       coins:        parsed.coins        ?? 0,
       clearedLevel: parsed.clearedLevel ?? 0,
+      lives:        parsed.lives        ?? 0,
     };
   } catch {
     return { ...DEFAULT_PLAYER };
