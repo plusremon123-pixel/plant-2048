@@ -542,43 +542,48 @@ function TopHudBar({ player, season }: { player: PlayerData; season: Season }) {
         }}
       >
         {/* ── 생명력 필 ─────────────────────────────────────── */}
+        {/* 하트 5칸 + +N 보너스를 하나의 pill 안에 배치
+            overflow:hidden 으로 pill 밖으로 절대 나가지 않음 */}
         <div
           style={{
             display:       "flex",
             alignItems:    "center",
-            gap:           3,
+            flexWrap:      "nowrap",
+            overflow:      "hidden",
+            gap:           0,
             background:    palette.bg + "CC",
             borderRadius:  9999,
-            padding:       "5px 12px 5px 10px",
+            padding:       "5px 10px",
             border:        `1.5px solid ${palette.text}30`,
             boxShadow:     "inset 0 1px 0 rgba(255,255,255,0.55), 0 1px 4px rgba(0,0,0,0.08)",
           }}
         >
           {/* 하트 슬롯 5칸 */}
-          <div style={{ display: "flex", gap: 2 }}>
-            {Array.from({ length: MAX_SLOTS }, (_, i) => (
-              <span
-                key={i}
-                style={{
-                  fontSize:   "clamp(15px, 4.5vw, 20px)",
-                  lineHeight: 1,
-                  opacity:    i < filled ? 1 : 0.22,
-                  filter:     i < filled ? "drop-shadow(0 1px 2px rgba(220,50,50,0.35))" : "none",
-                  transition: "opacity 0.3s",
-                }}
-              >❤️</span>
-            ))}
-          </div>
-          {/* 보너스: lives > 5 일 때만 */}
+          {Array.from({ length: MAX_SLOTS }, (_, i) => (
+            <span
+              key={i}
+              style={{
+                fontSize:   "clamp(14px, 4vw, 19px)",
+                lineHeight: 1,
+                opacity:    i < filled ? 1 : 0.22,
+                filter:     i < filled ? "drop-shadow(0 1px 2px rgba(220,50,50,0.35))" : "none",
+                transition: "opacity 0.3s",
+                flexShrink: 0,
+              }}
+            >❤️</span>
+          ))}
+          {/* +N 보너스: lives > 5 일 때만, pill 안에 이어서 표시 */}
           {bonus > 0 && (
             <span
               style={{
-                fontSize:    "clamp(12px, 3.5vw, 16px)",
-                fontWeight:  800,
-                color:       palette.text,
-                lineHeight:  1,
-                marginLeft:  4,
+                fontSize:      "clamp(11px, 3.2vw, 15px)",
+                fontWeight:    900,
+                color:         palette.text,
+                lineHeight:    1,
+                marginLeft:    5,
                 letterSpacing: "-0.3px",
+                flexShrink:    0,
+                whiteSpace:    "nowrap",
               }}
             >+{bonus}</span>
           )}

@@ -333,8 +333,9 @@ export default function App() {
           {/* 리셋 */}
           <button
             onClick={() => {
-              localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify({ coins: 0, clearedLevel: 0 }));
+              localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify({ coins: 9999, clearedLevel: 0, lives: 10 }));
               localStorage.removeItem("plant2048_subscription");
+              localStorage.removeItem("plant2048_lives_init_v1");
               window.location.reload();
             }}
             style={{
