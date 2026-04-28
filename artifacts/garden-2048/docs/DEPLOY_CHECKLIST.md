@@ -91,8 +91,11 @@ plugins: {
 
 ### 5-2. 정책 링크
 Play Console 에 필수:
-- **개인정보처리방침 URL** ← `docs/PRIVACY_POLICY.md` 를 GitHub Pages 등에 호스팅 후 URL 입력
-- 이메일 연락처
+- **개인정보처리방침 URL** ← `docs/PRIVACY_POLICY.md` (한글) / `docs/PRIVACY_POLICY_EN.md` (영문)
+- **이용약관 URL** ← `docs/TERMS_OF_SERVICE.md` (한글) / `docs/TERMS_OF_SERVICE_EN.md` (영문)
+- 위 4개 문서를 GitHub Pages 또는 Netlify 등에 호스팅한 뒤 `src/components/modals/SettingsModal.tsx` 의 `POLICY_URLS` 상수에 실제 URL 반영
+- 회사명: **스프랩가든 (Sprout Lab Garden)**
+- 문의 이메일: **sproutlabgarden@gmail.com** (실제 운영 이메일로 교체)
 
 ### 5-3. 설문 및 등급
 - 광고 포함 여부: **예 (AdMob)**

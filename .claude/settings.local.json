@@ -38,7 +38,8 @@
       "Bash(findstr /n \"showBanner\\\\|removeBanner\\\\|hideBanner\\\\|prepareInterstitial\\\\|showInterstitial\\\\|prepareRewardVideoAd\\\\|showRewardVideoAd\\\\|RewardAdPluginEvents\\\\|BannerAdPosition\\\\|AdMobBannerSize\")",
       "Bash(node -e \"const m = require\\('./node_modules/@capacitor-community/admob/dist/esm/index.js'\\); console.log\\(Object.keys\\(m\\).join\\('\\\\n'\\)\\)\")",
       "Bash(mkdir -p \"C:\\\\Users\\\\19002857\\\\Desktop\\\\plant2048\\\\.claude\\\\plans\")",
-      "Bash(cp \"C:\\\\Users\\\\19002857\\\\.claude\\\\plans\\\\quiet-knitting-sketch.md\" \"C:\\\\Users\\\\19002857\\\\Desktop\\\\plant2048\\\\.claude\\\\plans\\\\lives-system.md\")"
+      "Bash(cp \"C:\\\\Users\\\\19002857\\\\.claude\\\\plans\\\\quiet-knitting-sketch.md\" \"C:\\\\Users\\\\19002857\\\\Desktop\\\\plant2048\\\\.claude\\\\plans\\\\lives-system.md\")",
+      "Bash(npm run *)"
     ]
   }
 }
